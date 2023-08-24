@@ -1,0 +1,10 @@
+xarray>=0.16.2
+pandas>=1.1.5
+numpy>=1.19.5
+scipy>=1.5.4
+netCDF4>=1.5.8
+pyproj>=2.6.1
+cfgrib
+eccodes==1.2.0
+ecmwflibs
+git+https://gist.github.com/barronh/08b6fc259e47badd70b9fdcf2b7039f1.git
