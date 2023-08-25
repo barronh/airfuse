@@ -12,8 +12,8 @@ import pandas as pd
 
 
 def fuse(
-    obssource, species, startdate, model, bbox, cv_only=False, outdir=None,
-    overwrite=False, api_key=None, **kwds
+    obssource, species, startdate, model, bbox=None, cv_only=False,
+    outdir=None, overwrite=False, api_key=None, **kwds
 ):
     """
     Arguments
@@ -35,7 +35,8 @@ def fuse(
         raise KeyError(
             f'{obssource} only available with pm25; you chose {species}'
         )
-
+    if bbox is None:
+        bbox = (-135, 15, -55, 60)
     model = model.upper()
     spctitle = species.upper()
     if outdir is None:
