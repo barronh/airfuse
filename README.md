@@ -1,6 +1,6 @@
 # airfuse
 
-airfuse provides several data fusion techniques designed to work with AirNow,
+AirFuse provides several data fusion techniques designed to work with AirNow,
 PurpleAir, NOAA's Air Quality Forecast and NASA's Composition Forecast.
 
 ## Overview
@@ -16,7 +16,7 @@ This is currently a research product and is provided as-is with no warranty
 expressed or implied. Users should be cautious.
 
 
-## AirNow Examples
+## AirFuse Examples
 
 ```python
 from airfuse.drivers import fuse
@@ -28,4 +28,27 @@ pmpaths = fuse(
 o3paths = fuse(
     obssource='airnow', species='o3', startdate=date, model='naqfc'
 )
+```
+
+
+## Install
+
+### Using pip
+
+airfuse currently requires the nna_methods package, which is a gist. So,
+installing requires two calls to pip.
+
+```bash
+pip install git+https://github.com/barronh/airfuse.git
+pip install git+https://gist.github.com/barronh/08b6fc259e47badd70b9fdcf2b7039f1.git
+```
+
+### From Downloaded Source
+
+```
+wget https://github.com/barronh/airfuse/archive/refs/heads/main.zip
+unzip main
+cd airfuse-main
+pip install -r requirements.txt
+pip install .
 ```

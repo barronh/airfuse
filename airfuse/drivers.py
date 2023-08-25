@@ -2,7 +2,7 @@ __all__ = ['fuse']
 
 from .naqfc import get_mostrecent as get_naqfc
 from .geoscf import get_mostrecent as get_geoscf
-from .obs import pair_aqs, pair_purpleair
+from .obs import pair_airnow, pair_purpleair
 from .models import applymodel, get_models
 import time
 import pyproj
@@ -74,7 +74,7 @@ def fuse(
 
     obskey = {'o3': 'ozone', 'pm25': 'pm25'}[species]
     if obssource == 'airnow':
-        obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
+        obsdf = pair_airnow(date, bbox, proj, modvar, obskey)
     elif obssource == 'purpleair':
         obsdf = pair_purpleair(
             date, bbox, proj, modvar, obskey, api_key=api_key

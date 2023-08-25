@@ -1,7 +1,25 @@
-__all__ = ['pair_aqs', 'pair_purpleair']
+__all__ = ['pair_airnow', 'pair_purpleair']
+
+
+def pair_airnow(bdate, bbox, proj, var, spc):
+    """
+    pair_airnow calls pair_fem with src='airnow'
+
+    See pair_fem for description of keywords.
+    """
+    return pair_fem(bdate, bbox, proj, var, spc, 'airnow')
 
 
 def pair_aqs(bdate, bbox, proj, var, spc):
+    """
+    pair_aqs calls pair_fem with src='aqs'
+
+    See pair_fem for description of keywords.
+    """
+    return pair_fem(bdate, bbox, proj, var, spc, 'aqs')
+
+
+def pair_fem(bdate, bbox, proj, var, spc, src):
     """
     Arguments
     ---------
@@ -34,7 +52,7 @@ def pair_aqs(bdate, bbox, proj, var, spc):
         bbox=bbox, workdir=outdir
     )
     andf = rsigapi.to_dataframe(
-        f'airnow.{spc}', bdate=bdate, edate=edate, unit_keys=False,
+        f'{src}.{spc}', bdate=bdate, edate=edate, unit_keys=False,
         parse_dates=True
     )
     andf = andf.loc[~andf[spc].isnull()].copy()

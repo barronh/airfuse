@@ -2,7 +2,7 @@ from .parser import parse_args
 from .naqfc import get_mostrecent as get_naqfc
 from .geoscf import get_mostrecent as get_geoscf
 
-from .obs import pair_aqs, pair_purpleair
+from .obs import pair_airnow, pair_purpleair
 from .models import applymodel, get_models
 from .ensemble import distweight
 import time
@@ -47,7 +47,7 @@ pm.name = model
 proj = pyproj.Proj(pm.attrs['crs_proj4'], preserve_units=True)
 logging.info(proj.srs)
 
-andf = pair_aqs(date, bbox, proj, pm, 'pm25')
+andf = pair_airnow(date, bbox, proj, pm, 'pm25')
 padf = pair_purpleair(date, bbox, proj, pm, 'pm25')
 
 models = get_models()
