@@ -71,6 +71,7 @@ def fuse(
 
     modvar.name = model
     proj = pyproj.Proj(modvar.attrs['crs_proj4'], preserve_units=True)
+    logging.info(proj.srs)
 
     obskey = {'o3': 'ozone', 'pm25': 'pm25'}[species]
     if obssource == 'airnow':

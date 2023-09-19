@@ -28,10 +28,13 @@ def get_parser():
         help='Path for outputs; defaults to %Y/%m/%d'
     )
     parser.add_argument(
-        '-m', '--model', choices={'naqfc', 'geoscf'}, default='naqfc'
+        '-m', '--model', choices={'naqfc', 'geoscf', 'goes'}, default='naqfc'
     )
     parser.add_argument(
         '-s', '--species', choices={'o3', 'pm25'}, default='o3'
+    )
+    parser.add_argument(
+        '--obssource', choices={'airnow'}, default='airnow'
     )
     parser.add_argument(
       '-c', '--cv-only', default=False, action='store_true',

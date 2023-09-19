@@ -1,4 +1,4 @@
-__version__ = '0.4.0'
+__version__ = '0.4.1'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -7,6 +7,7 @@ changelog = '''
 * 0.4.0: added functionality with GEOS-CF and PurpleAir only fusion.
          moved ozone.py, pmpaonly.py, and pmanonly.py to drivers.py
          pa.py is retained because it applied pm from AirNow and PurpleAir
+* 0.4.1: switched default AirNow data source to be AirNow API
 '''
 
 __doc__ = '''

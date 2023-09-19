@@ -98,7 +98,7 @@ def open_mostrecent(date, key='LZQZ99_KWBP', failback='24h', filedate=None):
             return naqfcf
         except KeyError as e:
             last_err = e
-            print('testing next available file')
+            print(f'{date} not in {path}; testing next available file')
     else:
         if failback is not None:
             return open_mostrecent(

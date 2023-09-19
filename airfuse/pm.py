@@ -1,7 +1,7 @@
 from .parser import parse_args
 from .naqfc import get_mostrecent as get_naqfc
 from .geoscf import get_mostrecent as get_geoscf
-
+from .goes import get_goesgwr
 from .obs import pair_airnow, pair_purpleair
 from .models import applymodel, get_models
 from .ensemble import distweight
@@ -39,6 +39,8 @@ if model == 'NAQFC':
     pm = get_naqfc(date, key='LZQZ99_KWBP')
 elif model == 'GEOSCF':
     pm = get_geoscf(date, key='pm25_rh35_gcc', bbox=bbox)
+elif model == 'GOES':
+    pm = get_goesgwr(date, key='pm25', bbox=bbox)
 else:
     raise KeyError(f'{model} unknown')
 
