@@ -1,7 +1,7 @@
-__all__ = ['applymodel', 'get_models']
+__all__ = ['applyfusion', 'get_fusions']
 
 
-def get_models(n=30):
+def get_fusions(n=30):
     """
     Get instances of default models
     """
@@ -13,7 +13,7 @@ def get_models(n=30):
     return models
 
 
-def applymodel(
+def applyfusion(
     mod, prefix, fitdf, tgtdf=None, loodf=None, xkey='x',
     ykey='y', obskey='obs_value', modkey='NAQFC', biaskey='BIAS',
     ratiokey='RATIO', loo=True, cv=True, verbose=0, random_state=None

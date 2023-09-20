@@ -1,9 +1,8 @@
 __all__ = ['fuse']
 
-from .naqfc import get_mostrecent as get_naqfc
-from .geoscf import get_mostrecent as get_geoscf
+from .mod import get_model
 from .obs import pair_airnow, pair_purpleair
-from .models import applymodel, get_models
+from .models import applyfusion, get_fusions
 import time
 import pyproj
 import os
@@ -60,28 +59,22 @@ def fuse(
 
     logging.basicConfig(filename=logpath, level=logging.INFO)
 
-    if model == 'NAQFC':
-        noaakey = {'pm25': 'LZQZ99_KWBP', 'o3': 'LYUZ99_KWBP'}[species]
-        modvar = get_naqfc(date, key=noaakey)
-    elif model == 'GEOSCF':
-        nasakey = {'pm25': 'pm25_rh35_gcc', 'o3': 'o3'}[species]
-        modvar = get_geoscf(date, key=nasakey, bbox=bbox)
-    else:
-        raise KeyError(f'{model} unknown')
+    modvar = get_model(date, key=species, bbox=bbox, model=model)
 
-    modvar.name = model
     proj = pyproj.Proj(modvar.attrs['crs_proj4'], preserve_units=True)
     logging.info(proj.srs)
 
     obskey = {'o3': 'ozone', 'pm25': 'pm25'}[species]
     if obssource == 'airnow':
         obsdf = pair_airnow(date, bbox, proj, modvar, obskey)
+    elif obssource == 'aqs':
+        obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
     elif obssource == 'purpleair':
         obsdf = pair_purpleair(
             date, bbox, proj, modvar, obskey, api_key=api_key
         )
 
-    models = get_models()
+    models = get_fusions()
 
     if cv_only:
         tgtdf = None
@@ -93,7 +86,7 @@ def fuse(
     for mkey, mod in models.items():
         logging.info(f'{obssource} {mkey} start')
         t0 = time.time()
-        applymodel(
+        applyfusion(
             mod, mkey, obsdf, tgtdf=tgtdf, obskey=obskey, modkey=modvar.name,
             verbose=9
         )

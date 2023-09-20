@@ -38,7 +38,7 @@ def pair_airnow(bdate, bbox, proj, var, spc, verbose=1):
     bdate = pd.to_datetime(bdate)
     dt = bdate - pd.to_datetime('now', utc=True)
     twodaysago = (-2 * 24 * 3600)
-    if False and dt.total_seconds() < twodaysago:
+    if dt.total_seconds() < twodaysago:
         if verbose > 0:
             print('pair_airnow using AirNow File')
         return pair_airnowaqobsfile(bdate, bbox, proj, var, spc)

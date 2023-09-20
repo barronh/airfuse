@@ -1,3 +1,6 @@
+__all__ = ['get_mostrecent']
+
+
 def get_mostrecent(
     bdate, key='o3', bbox=None, failback='24h', resfac=4, filedate=None,
     path=None
@@ -34,6 +37,9 @@ def get_mostrecent(
     fcast = 'https://opendap.nccs.nasa.gov/dods/gmao/geos-cf/fcast'
     froot = 'aqc_tavg_1hr_g1440x721_v1/aqc_tavg_1hr_g1440x721_v1'
     bdate = pd.to_datetime(bdate)
+    if key == 'pm25':
+        key = 'pm25_rh35_gcc'
+
     if filedate is None:
         filedate = bdate
         if bdate.hour < 12:

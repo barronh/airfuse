@@ -1,9 +1,7 @@
 from .parser import parse_args
-from .naqfc import get_mostrecent as get_naqfc
-from .geoscf import get_mostrecent as get_geoscf
-from .goes import get_goesgwr
+from .mod import get_model
 from .obs import pair_airnow, pair_purpleair
-from .models import applymodel, get_models
+from .models import applyfusion, get_fusions
 from .ensemble import distweight
 import time
 import pyproj
@@ -35,16 +33,7 @@ logging.basicConfig(filename=logpath, level=logging.INFO)
 
 bbox = args.bbox
 
-if model == 'NAQFC':
-    pm = get_naqfc(date, key='LZQZ99_KWBP')
-elif model == 'GEOSCF':
-    pm = get_geoscf(date, key='pm25_rh35_gcc', bbox=bbox)
-elif model == 'GOES':
-    pm = get_goesgwr(date, key='pm25', bbox=bbox)
-else:
-    raise KeyError(f'{model} unknown')
-
-pm.name = model
+pm = get_model(date, key='pm25', bbox=bbox, model=model)
 
 proj = pyproj.Proj(pm.attrs['crs_proj4'], preserve_units=True)
 logging.info(proj.srs)
@@ -52,7 +41,7 @@ logging.info(proj.srs)
 andf = pair_airnow(date, bbox, proj, pm, 'pm25')
 padf = pair_purpleair(date, bbox, proj, pm, 'pm25')
 
-models = get_models()
+models = get_fusions()
 
 if args.cv_only:
     tgtdf = None
@@ -64,7 +53,7 @@ else:
 for mkey, mod in models.items():
     logging.info(f'AN {mkey} begin')
     t0 = time.time()
-    applymodel(
+    applyfusion(
         mod, f'{mkey}_AN', andf, tgtdf=tgtdf, obskey='pm25', modkey=pm.name,
         verbose=9
     )
@@ -75,7 +64,7 @@ for mkey, mod in models.items():
 for mkey, mod in models.items():
     logging.info(f'PA {mkey} begin')
     t0 = time.time()
-    applymodel(
+    applyfusion(
         mod, f'{mkey}_PA', padf, tgtdf=tgtdf, loodf=andf,
         obskey='pm25', modkey=pm.name, verbose=9
     )

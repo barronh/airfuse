@@ -7,7 +7,8 @@ changelog = '''
 * 0.4.0: added functionality with GEOS-CF and PurpleAir only fusion.
          moved ozone.py, pmpaonly.py, and pmanonly.py to drivers.py
          pa.py is retained because it applied pm from AirNow and PurpleAir
-* 0.4.1: switched default AirNow data source to be AirNow API
+* 0.4.1: switched default AirNow data source to be AirNow API (<2d old) or
+         AirNow Files (>=2d old)
 '''
 
 __doc__ = '''
@@ -58,3 +59,6 @@ git+https://gist.github.com/barronh/08b6fc259e47badd70b9fdcf2b7039f1.git
 
 %pip install --user -r requirements.txt
 '''
+import logging
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())

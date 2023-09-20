@@ -34,7 +34,7 @@ def get_parser():
         '-s', '--species', choices={'o3', 'pm25'}, default='o3'
     )
     parser.add_argument(
-        '--obssource', choices={'airnow'}, default='airnow'
+        '--obssource', choices={'airnow', 'aqs', 'purpleair'}, default='airnow'
     )
     parser.add_argument(
       '-c', '--cv-only', default=False, action='store_true',

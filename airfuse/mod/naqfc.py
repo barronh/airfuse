@@ -237,7 +237,7 @@ def get_mostrecent(date, key='LZQZ99_KWBP', failback='24h', path=None):
     date : datetime-like
         Beginning hour of date to extract
     key : str
-        LZQZ99_KWBP (pm) or LYUZ99_KWBP (ozone)
+        LZQZ99_KWBP (pm25) or LYUZ99_KWBP (ozone)
     bbox : tuple
         lower left lon, lower left lat, upper right lon, upper right lat
     failback : str
