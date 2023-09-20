@@ -1,5 +1,8 @@
 __all__ = ['get_mostrecent']
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def get_mostrecent(
     bdate, key='o3', bbox=None, failback='24h', resfac=4, filedate=None,
@@ -54,7 +57,7 @@ def get_mostrecent(
             )
         var = f[key].sel(time=bdate, method='nearest')
     except Exception as e:
-        print(str(e))
+        logger.info(str(e))
         filedate = filedate - pd.to_timedelta(failback)
         return get_mostrecent(
             bdate, key=key, bbox=bbox, failback=failback, filedate=filedate

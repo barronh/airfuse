@@ -1,6 +1,4 @@
-__all__ = [
-    'pair_purpleair', 
-]
+__all__ = ['pair_purpleair']
 
 
 def pair_purpleair(bdate, bbox, proj, var, spc, api_key=None):

@@ -29,6 +29,8 @@ for path in [pacvpath, ancvpath, fusepath]:
 if len(found) > 0 and not args.overwrite:
     raise IOError(f'Outputs exist; delete or use -O to continue:\n{found}')
 
+# Divert all logging during this script to the associated
+# log file at the INFO level.
 logging.basicConfig(filename=logpath, level=logging.INFO)
 
 bbox = args.bbox

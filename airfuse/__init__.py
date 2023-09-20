@@ -1,3 +1,6 @@
+import logging
+
+
 __version__ = '0.4.1'
 changelog = '''
 * 0.1.0: functioning
@@ -59,6 +62,6 @@ git+https://gist.github.com/barronh/08b6fc259e47badd70b9fdcf2b7039f1.git
 
 %pip install --user -r requirements.txt
 '''
-import logging
 
+# Set up loggnig object for library root
 logging.getLogger(__name__).addHandler(logging.NullHandler())

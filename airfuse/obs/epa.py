@@ -1,9 +1,12 @@
 __all__ = [
-    'pair_airnow', 'pair_aqs'
+    'pair_airnow', 'pair_aqs',
     'pair_airnowapi', 'pair_aqsapi',
-    'pair_airnowrsig', 'pair_aqsrsig'
+    'pair_airnowrsig', 'pair_aqsrsig',
     'pair_airnowaqobsfile', 'pair_airnowhourlydatafile'
 ]
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 def pair_airnow(bdate, bbox, proj, var, spc, verbose=1):
@@ -40,11 +43,11 @@ def pair_airnow(bdate, bbox, proj, var, spc, verbose=1):
     twodaysago = (-2 * 24 * 3600)
     if dt.total_seconds() < twodaysago:
         if verbose > 0:
-            print('pair_airnow using AirNow File')
+            logger.info('pair_airnow using AirNow File')
         return pair_airnowaqobsfile(bdate, bbox, proj, var, spc)
     else:
         if verbose > 0:
-            print('pair_airnow using AirNow API')
+            logger.info('pair_airnow using AirNow API')
         return pair_airnowapi(bdate, bbox, proj, var, spc)
 
 
@@ -80,6 +83,7 @@ def pair_aqs(bdate, bbox, proj, var, spc, verbose=1):
         before pairing with the model.
     """
     return pair_aqsrsig(bdate, bbox, proj, var, spc)
+
 
 def pair_airnowapi(bdate, bbox, proj, var, spc, api_key=None):
     """

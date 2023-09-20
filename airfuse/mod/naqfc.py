@@ -1,5 +1,8 @@
 __all__ = ['open_mostrecent', 'get_mostrecent']
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def getpaths(date, key, service='fileServer'):
     """
@@ -98,7 +101,7 @@ def open_mostrecent(date, key='LZQZ99_KWBP', failback='24h', filedate=None):
             return naqfcf
         except KeyError as e:
             last_err = e
-            print(f'{date} not in {path}; testing next available file')
+            logger.info(f'{date} not in {path}; testing next available file')
     else:
         if failback is not None:
             return open_mostrecent(
@@ -184,12 +187,12 @@ def open_operational(
                 + f'DC.ndgd/GT.aq/AR.conus/ds.{nwscode}.bin'
             )
         if verbose > 0:
-            print(url)
+            logger.info(url)
         try:
             r = requests.get(url)
             if r.status_code != 200:
                 if verbose > 0:
-                    print(f'Code {r.status_code} {url}')
+                    logger.info(f'Code {r.status_code} {url}')
                 continue
             with tempfile.NamedTemporaryFile() as tf:
                 tf.write(r.content)

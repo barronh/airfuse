@@ -1,5 +1,8 @@
 import numpy as np
 import pyproj
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Copying parameters from file in instead of reading each time

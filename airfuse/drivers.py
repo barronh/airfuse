@@ -1,7 +1,7 @@
 __all__ = ['fuse']
 
 from .mod import get_model
-from .obs import pair_airnow, pair_purpleair
+from .obs import pair_airnow, pair_aqs, pair_purpleair
 from .models import applyfusion, get_fusions
 import time
 import pyproj
