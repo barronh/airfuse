@@ -12,6 +12,7 @@ changelog = '''
          pa.py is retained because it applied pm from AirNow and PurpleAir
 * 0.4.1: switched default AirNow data source to be AirNow API (<2d old) or
          AirNow Files (>=2d old)
+* 0.4.2: updated logging to capture all logged messages during pm.py execution.
 '''
 
 __doc__ = '''

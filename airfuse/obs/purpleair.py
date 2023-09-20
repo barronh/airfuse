@@ -34,7 +34,7 @@ def pair_purpleair(bdate, bbox, proj, var, spc, api_key=None):
     import numpy as np
     import os
 
-    assert(spc == 'pm25')
+    assert (spc == 'pm25')
     outdir = f'{bdate:%Y/%m/%d}'
     bdate = pd.to_datetime(bdate)
     edate = bdate + pd.to_timedelta('3599s')
