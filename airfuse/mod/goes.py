@@ -73,14 +73,18 @@ gw_y = gwf_y[300:1500]
 def get_goesgwr(
     bdate, key='pm25', varkey='pm25gwr_ge', bbox=None, path=None
 ):
-    from .util import get_file
+    from ..util import get_file
     import pandas as pd
 
     bdate = pd.to_datetime(bdate)
     server = 'www.star.nesdis.noaa.gov'
     urlroot = f'https://{server}/pub/smcd/hzhang/GOES/GOES-16/NRT/CONUS'
-    filename = f'{bdate:pm25gwr/%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H.nc}'
-    localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H.nc}'
+    if 'dnn' in varkey:
+        filename = f'{bdate:pm25dnn/%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
+        localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
+    else:
+        filename = f'{bdate:pm25gwr/%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H.nc}'
+        localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H.nc}'
     # filename = f'{bdate:pm25dnn/%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
     # localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
 

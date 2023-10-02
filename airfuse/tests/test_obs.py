@@ -22,17 +22,17 @@ def get_dummyvar():
 def _test_srcspc(spc, src):
     import pyproj
     import numpy as np
-    from ..obs import pair_fem, pair_airnow, pair_aqs
+    from ..obs.epa import pair_rsig, pair_airnowrsig, pair_aqsrsig
 
     var = get_dummyvar()
     proj = pyproj.Proj(var.attrs['crs_proj4'])
     bdate = '2021-08-14T18Z'
     bbox = (-97, 25, -67, 50)
-    df1 = pair_fem(bdate, bbox, proj, var, spc, src)
+    df1 = pair_rsig(bdate, bbox, proj, var, spc, src)
     if src == 'airnow':
-        df2 = pair_airnow(bdate, bbox, proj, var, spc)
+        df2 = pair_airnowrsig(bdate, bbox, proj, var, spc)
     elif src == 'aqs':
-        df2 = pair_aqs(bdate, bbox, proj, var, spc)
+        df2 = pair_aqsrsig(bdate, bbox, proj, var, spc)
 
     if src in ('airnow', 'aqs'):
         assert (df1 == df2).replace(np.nan, -999).all().all()

@@ -1,7 +1,6 @@
 import logging
 
-
-__version__ = '0.4.1'
+__version__ = '0.5.0'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -13,6 +12,7 @@ changelog = '''
 * 0.4.1: switched default AirNow data source to be AirNow API (<2d old) or
          AirNow Files (>=2d old)
 * 0.4.2: updated logging to capture all logged messages during pm.py execution.
+* 0.5.0: Adding GOES capability as an observation dataset.
 '''
 
 __doc__ = '''
@@ -27,7 +27,7 @@ $ python -m airnow_fusion.pm 2023-06-14T14
 
 or
 
-$ python -m airnow_fusion.ozone 2023-06-14T14
+$ python -m airnow_fusion.drivers -s ozone 2023-06-14T14
 
 Installation:
 
