@@ -1,4 +1,7 @@
-__all__ = ['get_file', 'wget_file', 'request_file', 'ftp_file']
+__all__ = [
+    'get_file', 'wget_file', 'request_file', 'ftp_file', 'read_netrc',
+    'mpestats', 'to_geopandas', 'df2nc'
+]
 
 
 def get_file(url, local_path, wget=False):
@@ -197,3 +200,180 @@ def mpestats(df, refkey='obs'):
     sdf.index.name = 'key'
 
     return sdf
+
+
+def to_geopandas(x, y, z, crs, edges=None, colors=None, names=None):
+    """
+    Converts z into a set of polygons that are returned as a geopandas
+    GeoDataFrame
+
+    Inspired by
+    http://geoexamples.blogspot.com/2013/08/creating-vectorial-isobands-with-
+      python.html
+
+    Arguments
+    ---------
+    x : array-like
+        1-d x-coordinates in crs units
+    y : array-like
+        1-d y-coordinates in crs units
+    z : array-like
+        2-d (ny,nx) values at the y/x coordinates
+    crs : str
+        Projection string (PROJ4 or anything geopandas compatible)
+    edges : list
+        List of numerical boundaries for norm and cmap
+    colors : list
+        List of colors to be used for cmap
+    names : list
+        Names of intervals (one fewer than edges)
+
+    Returns
+    -------
+    gdf, cmap, norm : geopandas.GeoDataFrame, matplotlib.cmap, matplotlib.norm
+        Contains 1 row for each interval between edges, including rows with
+        empty Polygons
+    """
+    import warnings
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from shapely.geometry import Polygon, MultiPolygon, box
+    import geopandas as gpd
+
+    if edges is None:
+        # Based on PM from DMC
+        edges = [-5., 10, 20, 30, 50, 70, 90, 120, 500.4]
+
+    if colors is None:
+        colors = (
+            ['#808080']
+            + [
+                '#009600', '#99cc00', '#ffff99', '#ffff00', '#ffcc00',
+                '#f79900', '#ff0000', '#d60093',
+            ][:len(edges) - 1]
+            + ['#000000']
+        )
+
+    if names is None:
+        names = [
+            f'{start} to {end:.4g}'
+            for start, end in zip(edges[:-1], edges[1:])
+        ]
+    centers = np.interp(
+        np.arange(len(edges) - 1) + 0.5, np.arange(len(edges)), np.array(edges)
+    )
+    cmap, norm = plt.matplotlib.colors.from_levels_and_colors(
+        np.array(edges) + 0.0, colors, extend='both'
+    )
+    fig, ax = plt.subplots(1, 1, dpi=300)
+
+    # Clip the top and bottom of the scale
+    Z = np.ma.maximum(np.ma.minimum(np.ma.masked_invalid(z), 500), 0)
+
+    qcs = ax.contourf(
+        x, y, Z, levels=edges, cmap=cmap, norm=norm
+    )
+    mpolys = []
+    i = 0
+    # qcs.collections has been deprecated. On inspection,
+    # qcs.collections[i].get_paths() is identical to [qcs.get_paths()[i]]
+    # as a result, I have changed the setup to use get_paths
+    # https://github.com/matplotlib/matplotlib/blob/v3.8.1/lib/matplotlib
+    #  /contour.py#L987
+    paths = qcs.get_paths()
+    for pi, path in enumerate(paths):
+        if path.codes is None:
+            continue
+        polys = []
+        nbadpoly = 0
+        rings = []
+        xys = None
+        for xy, c in zip(path.vertices, path.codes):
+            if c == 1:
+                if xys is not None:
+                    rings.append(xys)
+                    i += 1
+                xys = [xy]
+            else:
+                xys.append(xy)
+
+        rings.append(xys)
+
+        nr = len(rings)
+        if nr > 0:
+            try:
+                poly = Polygon(rings[0], rings[1:])
+                polys.append(poly)
+            except Exception:
+                nbadpoly += 1
+        if nbadpoly > 0:
+            warnings.warn(f'*Lost {nbadpoly} polygons for {names[pi]}')
+        mpolys.append(dict(
+            Name=names[pi], AQIC=centers[pi], geometry=MultiPolygon(polys),
+            OGR_STYLE=f'BRUSH(fc:{colors[pi + 1]})',
+        ))
+    if len(mpolys) == 0:
+        gdf = gpd.GeoDataFrame([
+                dict(Name='BLANK', AQIC=-999, OGR_STYLE='BRUSH(fc:#808080')
+            ], geometry=[box(-130, 20, -129.999, 20.001)], crs=4326
+        ).to_crs(crs)
+    else:
+        df = pd.DataFrame(mpolys)
+        gdf = gpd.GeoDataFrame(
+            df.drop('geometry', axis='columns'), geometry=df['geometry'],
+            crs=crs
+        )
+
+    plt.close(fig)
+    return gdf, cmap, norm
+
+
+def df2nc(
+    tgtdf, varattrs, fileattrs, coordkeys=None, units='unknown', outpath=None
+):
+    """
+    Converts gridded target dataframe to a gridded Dataset
+    Arguments
+    ---------
+    tgtdf: pandas.DataFrame
+        DataFrame with gridded predictions
+    varattrs: dict
+        Dictionary of attributes for each variable that should be retained.
+    fileattrs: dict
+        File attributes to document the results.
+    coordkeys: list
+        Names of coordinates (defaults to ['time', 'y', 'x'])
+
+    Returns
+    -------
+    tgtds : xr.Dataset
+        Dataset with variables and properties defined above.
+    """
+    import xarray as xr
+    import pandas as pd
+    import pyproj
+    from datetime import datetime
+
+    if coordkeys is None:
+        coordkeys = ['time', 'y', 'x']
+    keepkeys = [k for k in varattrs if k in tgtdf.columns]
+    tgtds = tgtdf[coordkeys + keepkeys].set_index(coordkeys).to_xarray()
+    tgtds.coords['time'] = pd.to_datetime(tgtds.coords['time'])
+
+    for k in tgtds.data_vars:
+        tgtds[k] = tgtds[k].astype('f')
+        tgtds[k].attrs.setdefault('long_name', k)
+        tgtds[k].attrs.setdefault('units', units)
+        tgtds[k].attrs.update(varattrs[k])
+
+    tgtds.attrs.update(fileattrs)
+    now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S%z')
+    if 'crs_proj4' in fileattrs:
+        proj = pyproj.Proj(fileattrs['crs_proj4'])
+        cfattrs = proj.crs.to_cf()
+        tgtds['crs'] = xr.DataArray(0, dims=(), attrs=cfattrs)
+    tgtds.attrs.setdefault('creation_date', now)
+    if outpath is not None:
+        tgtds.to_netcdf(outpath)
+    return tgtds
