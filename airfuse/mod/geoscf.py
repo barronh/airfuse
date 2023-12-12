@@ -40,6 +40,7 @@ def get_mostrecent(
     fcast = 'https://opendap.nccs.nasa.gov/dods/gmao/geos-cf/fcast'
     froot = 'aqc_tavg_1hr_g1440x721_v1/aqc_tavg_1hr_g1440x721_v1'
     bdate = pd.to_datetime(bdate)
+    mdate = bdate + pd.to_timedelta('30min')
     if key == 'pm25':
         key = 'pm25_rh35_gcc'
 
@@ -55,7 +56,7 @@ def get_mostrecent(
             f = xr.open_dataset(
                 f'{fcast}/{froot}.{filedate:%Y%m%d}_12z'
             )
-        var = f[key].sel(time=bdate, method='nearest')
+        var = f[key].sel(time=mdate, method='nearest')
     except Exception as e:
         logger.info(str(e))
         filedate = filedate - pd.to_timedelta(failback)
