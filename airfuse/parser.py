@@ -43,6 +43,10 @@ def get_parser():
       help='Only run cross validation'
     )
     parser.add_argument('-a', '--api-key', help='PurpleAir API Key')
+    parser.add_argument(
+        '-f', '--format', choices={'csv', 'nc'}, default='csv',
+        help='Output format csv or NetCDF (nc)'
+    )
     hstr = 'Start Date YYYY-MM-DDTHHZ of obs and model'
     parser.add_argument('startdate', type=pd.to_datetime, help=hstr)
     return parser
