@@ -149,7 +149,7 @@ def pair_airnowapi(bdate, bbox, proj, var, spc, api_key=None):
     df[spc] = df['RawConcentration']
     df['BIAS'] = df[var.name] - df[spc]
     df['RATIO'] = df[var.name] / df[spc]
-    return df.query(f'{var.name} == {var.name}')
+    return df.query(f'{var.name} == {var.name} and {spc} == {spc}')
 
 
 def pair_airnowaqobsfile(bdate, bbox, proj, var, spc):
@@ -203,7 +203,7 @@ def pair_airnowaqobsfile(bdate, bbox, proj, var, spc):
     df['BIAS'] = df[var.name] - df[spc]
     df['RATIO'] = df[var.name] / df[spc]
 
-    return df.query(f'{var.name} == {var.name}')
+    return df.query(f'{var.name} == {var.name} and {spc} == {spc}')
 
 
 def pair_airnowhourlydatafile(bdate, bbox, proj, var, spc):
@@ -276,7 +276,7 @@ def pair_airnowhourlydatafile(bdate, bbox, proj, var, spc):
     df['BIAS'] = df[var.name] - df[spc]
     df['RATIO'] = df[var.name] / df[spc]
 
-    return df.query(f'{var.name} == {var.name}')
+    return df.query(f'{var.name} == {var.name} and {spc} == {spc}')
 
 
 def pair_airnowrsig(bdate, bbox, proj, var, spc):
@@ -372,7 +372,7 @@ def pair_aqsapi(bdate, bbox, proj, var, spc, api_user=None, api_key=None):
     df['BIAS'] = df[var.name] - df[spc]
     df['RATIO'] = df[var.name] / df[spc]
 
-    return df.query(f'{var.name} == {var.name}')
+    return df.query(f'{var.name} == {var.name} and {spc} == {spc}')
 
 
 def pair_rsig(bdate, bbox, proj, var, spc, src):
@@ -421,4 +421,4 @@ def pair_rsig(bdate, bbox, proj, var, spc, src):
     ).values
     andf['BIAS'] = andf[var.name] - andf[spc]
     andf['RATIO'] = andf[var.name] / andf[spc]
-    return andf.query(f'{var.name} == {var.name}').copy()
+    return andf.query(f'{var.name} == {var.name} and {spc} == {spc}').copy()
