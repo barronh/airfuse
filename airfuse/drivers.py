@@ -3,11 +3,14 @@ __all__ = ['fuse']
 from .mod import get_model
 from .obs import pair_airnow, pair_aqs, pair_purpleair
 from .models import applyfusion, get_fusions
+from .util import df2nc
 import time
 import pyproj
 import os
 import logging
 import pandas as pd
+import xarray as xr
+from . import __version__
 
 
 def fuse(
@@ -47,7 +50,7 @@ def fuse(
     )
     logpath = f'{stem}.log'
     cvpath = f'{stem}_CV.csv'
-    fusepath = f'{stem}.csv'
+    fusepath = f'{stem}.{args.format}'
 
     found = set()
     for path in [cvpath, fusepath]:
@@ -58,6 +61,7 @@ def fuse(
         raise IOError(f'Outputs exist; delete or use -O to continue:\n{found}')
 
     logging.basicConfig(filename=logpath, level=logging.INFO)
+    logging.info(f'AirFuse {__version__}')
 
     modvar = get_model(date, key=species, bbox=bbox, model=model)
 
@@ -73,6 +77,33 @@ def fuse(
         obsdf = pair_purpleair(
             date, bbox, proj, modvar, obskey, api_key=api_key
         )
+
+    vardescs = {
+      'NAQFC': 'NOAA Forecast (NAQFC)',
+      f'IDW_{obskey}': f'NN weighted (n=10, d**-5) AirNow {obskey}',
+      f'VNA_{obskey}': f'VN weighted (n=nv, d**-2) AirNow {obskey}',
+      'aIDW': 'IDW of AirNow bias added to the NOAA NAQFC forecast',
+      'aVNA': 'VNA of AirNow bias added to the NOAA NAQFC forecast',
+    }
+    varattrs = {
+        k: dict(description=v, units='micrograms/m**3')
+        for k, v in vardescs.items()
+    }
+
+    fdesc = f"""title: AirFuse ({__version__}) {obskey}
+author: Barron H. Henderson
+institution: US Environmental Protection Agency
+citation: AirFuse - a light weight data fusion system for
+description:
+    Fusion of observations (AirNow and PurpleAir) using residual
+    interpolation and correction of the NOAA NAQFC forecast model. The bias is
+    estimated in real-time using AirNow and PurpleAir measurements. It is
+    interpolated using the average of either nearest neighbors (IDW) or the
+    Voronoi/Delaunay neighbors (VNA). IDW uses 10 nearest neighbors with a
+    weight equal to distance to the -5 power. VNA uses just the Delaunay
+    neighbors and a weight equal to distnace to the -2 power. The aVNA and aIDW
+    use an additive bias correction using these interpolations.
+"""
 
     models = get_fusions()
 
@@ -96,8 +127,19 @@ def fuse(
     # Save results to disk
     obsdf.to_csv(cvpath, index=False)
     if not cv_only:
-        tgtdf.to_csv(fusepath, index=False)
-
+        # Save final results to disk
+        if fusepath.endswith('.nc'):
+            metarow = tgtdf.iloc[0]
+            fileattrs = {
+                'description': fdesc, 'crs_proj4': proj.srs,
+                'reftime': metarow['reftime'].strftime('%Y-%m-%dT%H:%M:%S%z'),
+                'sigma': metarow['sigma']
+            }
+            tgtds = df2nc(tgtdf, varattrs, fileattrs)
+            tgtds.to_netcdf(fusepath)
+        else:
+            # Defualt to csv
+            tgtdf.to_csv(fusepath, index=False)
     logging.info('Successful completion')
     return {'outpath': fusepath, 'evalpath': cvpath, 'logpath': logpath}
 
