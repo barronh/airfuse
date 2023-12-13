@@ -69,6 +69,8 @@ def open_mostrecent(
     bdate, key='LZQZ99_KWBP', failback='24h', filedate=None, verbose=0
 ):
     """
+    Finds and opens the most recent NCEI archived forecast.
+
     Arguments
     ---------
     bdate : datetime-like
@@ -128,6 +130,9 @@ def open_operational(
     verbose=4
 ):
     """
+    Finds and opens the most recent NCEP (today or yesterday) or NWS (today
+    only) forecast.
+
     Arguments
     ---------
     bdate : datetime-like
@@ -284,6 +289,9 @@ def get_mostrecent(
     bdate, key='LZQZ99_KWBP', bbox=None, failback='24h', path=None, verbose=0
 ):
     """
+    If within the last two days, open operational forecast.
+    Otherwise, open the most recent archive from NCEI's opendap.
+
     Arguments
     ---------
     bdate : datetime-like
