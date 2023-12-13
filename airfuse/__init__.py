@@ -13,7 +13,7 @@ changelog = '''
          AirNow Files (>=2d old)
 * 0.4.2: updated logging to capture all logged messages during pm.py execution.
 * 0.5.0: Adding GOES capability as an observation dataset.
-* 0.5.1: * Updated obs/epa readers to require a valid observation as well as mod.
+* 0.5.1: * Updated obs/epa readers to require valid observation as well as mod.
          * Updated pm driver to set a minimum distance of half a grid cell for
            PurpleAir for the purpose of fusing data. This prevents PurpleAir
            from every being closer to the prediction cell centroid than an
@@ -43,6 +43,8 @@ Installation:
 Example for bash:
 
 cat << EOF > requirements.txt
+dask[array]
+dask[dataframe]
 xarray>=0.16.2
 pandas>=1.1.5
 numpy>=1.19.5
@@ -52,7 +54,7 @@ pyproj>=2.6.1
 cfgrib
 eccodes==1.2.0
 ecmwflibs
-git+https://gist.github.com/barronh/nna_methods.git
+git+https://github.com/barronh/nna_methods.git
 EOF
 pip install --user -r requirements.txt
 
