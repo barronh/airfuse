@@ -53,6 +53,7 @@ def fuse(
     logpath = f'{stem}.log'
     cvpath = f'{stem}_CV.csv'
     fusepath = f'{stem}.{outfmt}'
+    outpaths = {'outpath': fusepath, 'evalpath': cvpath, 'logpath': logpath}
 
     found = set()
     for path in [cvpath, fusepath]:
@@ -142,7 +143,6 @@ use an additive bias correction using these interpolations.
             # Defualt to csv
             tgtdf.to_csv(fusepath, index=False)
     logging.info('Successful completion')
-    outpaths = {'outpath': fusepath, 'evalpath': cvpath, 'logpath': logpath}
     if cv_only:
         outpaths.pop('outpath', 0)
 

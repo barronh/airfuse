@@ -8,7 +8,7 @@ import matplotlib.colors as mc
 import matplotlib.cm as cm
 import numpy as np
 # From AQI guidance on airnow
-colors = [mc.to_hex(c) for c in np.array([
+aqicolors = [mc.to_hex(c) for c in np.array([
     [0, 228, 0, ],
     [255, 255, 0],
     [255, 126, 0],
@@ -32,12 +32,12 @@ o3edges2 = np.array([
 ])
 
 from_list = mc.LinearSegmentedColormap.from_list
-epa_aqi_cmap = from_list('epa_aqi', colors, len(pmedges) - 1)
-epa_aqi_cmap.set_under(colors[0])
-epa_aqi_cmap.set_over(colors[-1])
-epa_aqi2_cmap = from_list('epa_aqi2', colors, len(pmedges2)-1)
-epa_aqi2_cmap.set_under(colors[0])
-epa_aqi2_cmap.set_over(colors[-1])
+epa_aqi_cmap = from_list('epa_aqi', aqicolors, len(pmedges) - 1)
+epa_aqi_cmap.set_under(aqicolors[0])
+epa_aqi_cmap.set_over(aqicolors[-1])
+epa_aqi2_cmap = from_list('epa_aqi2', aqicolors, len(pmedges2)-1)
+epa_aqi2_cmap.set_under(aqicolors[0])
+epa_aqi2_cmap.set_over(aqicolors[-1])
 epa_aqi_norm = mc.BoundaryNorm(aqiedges, len(aqiedges) - 1)
 epa_aqi2_norm = mc.BoundaryNorm(aqiedges2, len(aqiedges2) - 1)
 epa_pmaqi2_norm = mc.BoundaryNorm(pmedges2, len(pmedges2) - 1)

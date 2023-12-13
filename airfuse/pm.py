@@ -57,6 +57,10 @@ nearest obs.
     ancvpath = f'{stem}_AirNow_CV.csv'
     outfmt = kwds.get("format", 'csv')
     fusepath = f'{stem}.{outfmt}'
+    outpaths = {
+        'outpath': fusepath, 'paevalpath': pacvpath, 'anevalpath': ancvpath,
+        'logpath': logpath
+    }
 
     found = set()
     for path in [pacvpath, ancvpath, fusepath]:
@@ -183,10 +187,6 @@ nearest obs.
             tgtdf.to_csv(fusepath, index=False)
 
     logging.info('Successful Completion')
-    outpaths = {
-        'outpath': fusepath, 'paevalpath': pacvpath, 'anevalpath': ancvpath,
-        'logpath': logpath
-    }
     if cv_only:
         outpaths.pop('outpath', 0)
 

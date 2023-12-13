@@ -45,7 +45,7 @@ Example for bash:
 cat << EOF > requirements.txt
 dask[array]
 dask[dataframe]
-xarray>=0.16.2
+xarray>=2023.11.0
 pandas>=1.1.5
 numpy>=1.19.5
 scipy>=1.5.4
