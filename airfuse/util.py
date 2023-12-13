@@ -1,6 +1,6 @@
 __all__ = [
     'get_file', 'wget_file', 'request_file', 'ftp_file', 'read_netrc',
-    'mpestats', 'to_geopandas', 'df2nc'
+    'mpestats', 'to_geopandas', 'to_geojson', 'df2nc'
 ]
 
 
@@ -351,6 +351,50 @@ def to_geopandas(
 
     plt.close(fig)
     return gdf, cmap, norm
+
+
+def to_geojson(outpath, *args, simplify=.01, precision=5, outcrs=4326, **kwds):
+    """
+    Thin wrapper around to_geopandas with addition arguments. See to_geopandas
+    for definition of other arguments (x, y, z, colors, edges, names, over,
+    under).
+
+    Arguments
+    ---------
+    outpath : str
+        Path to save the geojson to
+    simplify : float
+        Level of simplification that occurs in long/lat space.
+    precision : int
+        Level of precision to hold in output coordinate.
+
+    Returns
+    -------
+    None
+    """
+    from shapely import wkt
+    import logging
+
+    gdf, cmap, norm = to_geopandas(*args, **kwds)
+    verbose = kwds.get('verbose', 0)
+    if outcrs is not None:
+        gdf = gdf.to_crs(outcrs)
+    if precision is not None:
+        if verbose > 0:
+            logging.info('Reducing precision of coordinates')
+        gdf['geometry'] = gdf.geometry.apply(
+            lambda x: wkt.loads(wkt.dumps(x, rounding_precision=precision))
+        )
+
+    if simplify is not None:
+        if verbose > 0:
+            logging.info('Simplify')
+        gdf['geometry'] = gdf['geometry'].simplify(simplify)
+    driver_opts = {
+        'driver': 'GeoJSON',
+        'COORDINATE_PRECISION': 7
+    }
+    gdf.to_file(outpath, **driver_opts)
 
 
 def df2nc(
