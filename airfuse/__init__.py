@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.5.2'
+__version__ = '0.5.3'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -22,26 +22,76 @@ changelog = '''
            of the target domain.
          * Update to pull NAQFC based on end hour.
 * 0.5.2: * Added NetCDF formatted output option.
+* 0.5.3: * Updated to_geopandas for backward matplotlib compatibility
 '''
 
 __doc__ = '''
-Contains proposed spatial fusion method for AirNow.
+Overview
+========
 
-Requires:
- * xarray, pandas, numpy, scipy
- * for NCEI archvied files (past): netCDF4
- * for NWS or NCEP last two day files: cfgrib, eccodes, ecmwflibs
-Usage as a script:
-$ python -m airnow_fusion.pm 2023-06-14T14
+The package contains a proposed spatial fusion method for AirNow.
+
+* Realtime AirNow data expects a ~/.airnowkey file that contains the user's
+  AirNow API key. The file should have read permissions for only the user.
+* PurpleAir expects a ~/.purpleairkey file that contains the user's PurpleAir
+  API key. The file should have read permissions for only the user.
+
+Usage
+=====
+
+Usage as a script
+-----------------
+
+```bash
+python -m airfuse.pm 2023-06-14T14
+```
 
 or
 
-$ python -m airnow_fusion.drivers -s ozone 2023-06-14T14
+```bash
+python -m airfuse.drivers -s ozone 2023-06-14T14
+```
 
-Installation:
 
-Example for bash:
+Usage as a module
+-----------------
 
+```python
+from airfuse.drivers import fuse
+import pandas as pd
+
+date = pd.to_datetime('2023-08-24T18Z')
+outpaths = fuse('airnow', 'o3', date, 'naqfc', (-97, 25, -67, 50))
+print(outpaths)
+```
+
+or
+
+```python
+from airfuse.pm import pmfuse
+import pandas as pd
+
+date = pd.to_datetime('2023-08-24T18Z')
+outpaths = pmfuse(date, 'naqfc', (-97, 25, -67, 50))
+print(outpaths)
+```
+
+
+Installation
+============
+
+Prerequisites
+-------------
+
+ * xarray, pandas, numpy, scipy
+ * for NCEI archvied files (past): netCDF4
+ * for NWS or NCEP last two day files: cfgrib, eccodes, ecmwflibs
+ * ~/.airnowkey and ~/.purpleairkey with keys for data access
+
+Example bash Installation
+-------------------------
+
+```bash
 cat << EOF > requirements.txt
 dask[array]
 dask[dataframe]
@@ -54,14 +104,21 @@ pyproj>=2.6.1
 cfgrib
 eccodes==1.2.0
 ecmwflibs
+pyrsig
 git+https://github.com/barronh/nna_methods.git
+git+https://github.com/barronh/airfuse.git
 EOF
 pip install --user -r requirements.txt
+```
 
-Example for JupyterNotebook using two cells.
+Example for JupyterNotebook
+---------------------------
 
+# In[1]
 %writefile requirements.txt
-xarray>=0.16.2
+dask[array]
+dask[dataframe]
+xarray>=2023.11.0
 pandas>=1.1.5
 numpy>=1.19.5
 scipy>=1.5.4
@@ -70,8 +127,11 @@ pyproj>=2.6.1
 cfgrib
 eccodes==1.2.0
 ecmwflibs
-git+https://gist.github.com/barronh/nna_methods.git
+pyrsig
+git+https://github.com/barronh/nna_methods.git
+git+https://github.com/barronh/airfuse.git
 
+# In[2]
 %pip install --user -r requirements.txt
 '''
 
