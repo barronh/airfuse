@@ -47,7 +47,7 @@ def get_mostrecent(
     if filedate is None:
         filedate = bdate
         if bdate.hour < 12:
-            filedate = filedate + pd.to_timedelta('24h')
+            filedate = filedate + pd.to_timedelta('-24h')
     else:
         filedate = pd.to_datetime(filedate)
     try:
