@@ -9,7 +9,6 @@ import pyproj
 import os
 import logging
 import pandas as pd
-import xarray as xr
 from . import __version__
 
 
@@ -20,6 +19,7 @@ def fuse(
     """
     Arguments
     ---------
+    obssource : str
     species : str
     startdate : datelike
     model : str
@@ -27,10 +27,11 @@ def fuse(
     cv_only : bool
     outdir : str or None
     overwrite : bool
-    obssource : str
 
     Returns
     -------
+    outpaths : dict
+        Dictionary of output paths
     """
     date = pd.to_datetime(startdate)
     if obssource == 'purpleair' and species != 'pm25':
@@ -48,9 +49,10 @@ def fuse(
     stem = (
         f'{outdir}/Fusion_{spctitle}_{model}_{obssource}_{date:%Y-%m-%dT%H}Z'
     )
+    outfmt = kwds.get("format", 'csv')
     logpath = f'{stem}.log'
     cvpath = f'{stem}_CV.csv'
-    fusepath = f'{stem}.{args.format}'
+    fusepath = f'{stem}.{outfmt}'
 
     found = set()
     for path in [cvpath, fusepath]:
@@ -62,6 +64,7 @@ def fuse(
 
     logging.basicConfig(filename=logpath, level=logging.INFO)
     logging.info(f'AirFuse {__version__}')
+    logging.info(f'Output dir: {outdir}')
 
     modvar = get_model(date, key=species, bbox=bbox, model=model)
 
@@ -90,19 +93,14 @@ def fuse(
         for k, v in vardescs.items()
     }
 
-    fdesc = f"""title: AirFuse ({__version__}) {obskey}
-author: Barron H. Henderson
-institution: US Environmental Protection Agency
-citation: AirFuse - a light weight data fusion system for
-description:
-    Fusion of observations (AirNow and PurpleAir) using residual
-    interpolation and correction of the NOAA NAQFC forecast model. The bias is
-    estimated in real-time using AirNow and PurpleAir measurements. It is
-    interpolated using the average of either nearest neighbors (IDW) or the
-    Voronoi/Delaunay neighbors (VNA). IDW uses 10 nearest neighbors with a
-    weight equal to distance to the -5 power. VNA uses just the Delaunay
-    neighbors and a weight equal to distnace to the -2 power. The aVNA and aIDW
-    use an additive bias correction using these interpolations.
+    fdesc = """Fusion of observations (AirNow and PurpleAir) using residual
+interpolation and correction of the NOAA NAQFC forecast model. The bias is
+estimated in real-time using AirNow and PurpleAir measurements. It is
+interpolated using the average of either nearest neighbors (IDW) or the
+Voronoi/Delaunay neighbors (VNA). IDW uses 10 nearest neighbors with a
+weight equal to distance to the -5 power. VNA uses just the Delaunay
+neighbors and a weight equal to distnace to the -2 power. The aVNA and aIDW
+use an additive bias correction using these interpolations.
 """
 
     models = get_fusions()
@@ -131,6 +129,9 @@ description:
         if fusepath.endswith('.nc'):
             metarow = tgtdf.iloc[0]
             fileattrs = {
+                'title': f'AirFuse ({__version__}) {obskey}',
+                'author': 'Barron H. Henderson',
+                'institution': 'US Environmental Protection Agency',
                 'description': fdesc, 'crs_proj4': proj.srs,
                 'reftime': metarow['reftime'].strftime('%Y-%m-%dT%H:%M:%S%z'),
                 'sigma': metarow['sigma']
@@ -141,7 +142,11 @@ description:
             # Defualt to csv
             tgtdf.to_csv(fusepath, index=False)
     logging.info('Successful completion')
-    return {'outpath': fusepath, 'evalpath': cvpath, 'logpath': logpath}
+    outpaths = {'outpath': fusepath, 'evalpath': cvpath, 'logpath': logpath}
+    if cv_only:
+        outpaths.pop('outpath', 0)
+
+    return outpaths
 
 
 if __name__ == '__main__':
