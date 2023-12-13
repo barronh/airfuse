@@ -202,7 +202,10 @@ def mpestats(df, refkey='obs'):
     return sdf
 
 
-def to_geopandas(x, y, z, crs, edges=None, colors=None, names=None):
+def to_geopandas(
+    x, y, z, crs, edges=None, colors=None, names=None,
+    under='#808080', over='#000000'
+):
     """
     Converts z into a set of polygons that are returned as a geopandas
     GeoDataFrame
@@ -227,6 +230,12 @@ def to_geopandas(x, y, z, crs, edges=None, colors=None, names=None):
         List of colors to be used for cmap
     names : list
         Names of intervals (one fewer than edges)
+    under : str
+        If None, do not automatically add an under category.
+        If not None, add a category (z.min(), edges[0]) with color=under
+    over : str
+        If None, do not automatically add an over category.
+        If not None, add a category (z.max(), edges[-1]) with color=over
 
     Returns
     -------
@@ -244,27 +253,35 @@ def to_geopandas(x, y, z, crs, edges=None, colors=None, names=None):
     if edges is None:
         # Based on PM from DMC
         edges = [-5., 10, 20, 30, 50, 70, 90, 120, 500.4]
-
+    zmin = z.min() - 1e-20
+    zmax = z.max() + 1e-20
     if colors is None:
         colors = (
-            ['#808080']
-            + [
+            [
                 '#009600', '#99cc00', '#ffff99', '#ffff00', '#ffcc00',
                 '#f79900', '#ff0000', '#d60093',
             ][:len(edges) - 1]
-            + ['#000000']
         )
+    colors = [c for c in colors]
+    if zmin < edges[0] and under is not None:
+        colors.insert(0, under)
+        edges = np.append(zmin, edges)
+
+    if zmax > edges[-1] and over is not None:
+        colors.append(over)
+        edges = np.append(edges, zmax)
 
     if names is None:
         names = [
             f'{start} to {end:.4g}'
             for start, end in zip(edges[:-1], edges[1:])
         ]
+
     centers = np.interp(
         np.arange(len(edges) - 1) + 0.5, np.arange(len(edges)), np.array(edges)
     )
     cmap, norm = plt.matplotlib.colors.from_levels_and_colors(
-        np.array(edges) + 0.0, colors, extend='both'
+        np.array(edges) + 0.0, colors, extend='neither'
     )
     fig, ax = plt.subplots(1, 1, dpi=300)
 
@@ -281,38 +298,45 @@ def to_geopandas(x, y, z, crs, edges=None, colors=None, names=None):
     # as a result, I have changed the setup to use get_paths
     # https://github.com/matplotlib/matplotlib/blob/v3.8.1/lib/matplotlib
     #  /contour.py#L987
-    paths = qcs.get_paths()
-    for pi, path in enumerate(paths):
-        if path.codes is None:
-            continue
-        polys = []
-        nbadpoly = 0
-        rings = []
-        xys = None
-        for xy, c in zip(path.vertices, path.codes):
-            if c == 1:
-                if xys is not None:
-                    rings.append(xys)
-                    i += 1
-                xys = [xy]
-            else:
-                xys.append(xy)
+    try:
+        paths = qcs.get_paths()
+        pathgroups = [[p] for p in paths]
+    except Exception:
+        pathgroups = [c.get_paths() for c in qcs.collections]
 
-        rings.append(xys)
+    assert len(pathgroups) == len(centers)
+    for pi, pathg in enumerate(pathgroups):
+        for path in pathg:
+            if path.codes is None:
+                continue
+            polys = []
+            nbadpoly = 0
+            rings = []
+            xys = None
+            for xy, c in zip(path.vertices, path.codes):
+                if c == 1:
+                    if xys is not None:
+                        rings.append(xys)
+                        i += 1
+                    xys = [xy]
+                else:
+                    xys.append(xy)
 
-        nr = len(rings)
-        if nr > 0:
-            try:
-                poly = Polygon(rings[0], rings[1:])
-                polys.append(poly)
-            except Exception:
-                nbadpoly += 1
-        if nbadpoly > 0:
-            warnings.warn(f'*Lost {nbadpoly} polygons for {names[pi]}')
-        mpolys.append(dict(
-            Name=names[pi], AQIC=centers[pi], geometry=MultiPolygon(polys),
-            OGR_STYLE=f'BRUSH(fc:{colors[pi + 1]})',
-        ))
+            rings.append(xys)
+
+            nr = len(rings)
+            if nr > 0:
+                try:
+                    poly = Polygon(rings[0], rings[1:])
+                    polys.append(poly)
+                except Exception:
+                    nbadpoly += 1
+            if nbadpoly > 0:
+                warnings.warn(f'*Lost {nbadpoly} polygons for {names[pi]}')
+            mpolys.append(dict(
+                Name=names[pi], AQIC=centers[pi], geometry=MultiPolygon(polys),
+                OGR_STYLE=f'BRUSH(fc:{colors[pi]})',
+            ))
     if len(mpolys) == 0:
         gdf = gpd.GeoDataFrame([
                 dict(Name='BLANK', AQIC=-999, OGR_STYLE='BRUSH(fc:#808080')
