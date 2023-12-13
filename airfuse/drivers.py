@@ -10,6 +10,7 @@ import os
 import logging
 import pandas as pd
 from . import __version__
+import warnings
 
 
 def fuse(
@@ -55,13 +56,15 @@ def fuse(
     fusepath = f'{stem}.{outfmt}'
     outpaths = {'outpath': fusepath, 'evalpath': cvpath, 'logpath': logpath}
 
-    found = set()
-    for path in [cvpath, fusepath]:
-        if os.path.exists(path):
-            found.add(path)
+    found = {k: os.path.exists(p) for k, p in outpaths.items()}
+    chks = ['evalpath', 'outpath']
 
-    if len(found) > 0 and not overwrite:
-        raise IOError(f'Outputs exist; delete or use -O to continue:\n{found}')
+    if any([found[k] for k in chks]) and not overwrite:
+        foundstr = ' '.join([outpaths[k] for k, v in found.items() if v])
+        warnings.warn(
+            f'Outputs exist; delete or use -O to continue:\n{foundstr}'
+        )
+        return outpaths
 
     logging.basicConfig(filename=logpath, level=logging.INFO)
     logging.info(f'AirFuse {__version__}')

@@ -11,6 +11,7 @@ import pyproj
 import os
 import logging
 from . import __version__
+import warnings
 
 
 def pmfuse(
@@ -62,16 +63,15 @@ nearest obs.
         'logpath': logpath
     }
 
-    found = set()
-    for path in [pacvpath, ancvpath, fusepath]:
-        if os.path.exists(path):
-            found.add(path)
+    found = {k: os.path.exists(p) for k, p in outpaths.items()}
+    chks = ['anevalpath', 'paevalpath', 'outpath']
 
-    if len(found) > 0 and not overwrite:
-        foundstr = ' '.join(found)
-        raise IOError(
+    if any([found[k] for k in chks]) and not overwrite:
+        foundstr = ' '.join([outpaths[k] for k, v in found.items() if v])
+        warnings.warn(
             f'Outputs exist; delete or use -O to continue:\n{foundstr}'
         )
+        return outpaths
 
     # Divert all logging during this script to the associated
     # log file at the INFO level.
