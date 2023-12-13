@@ -35,7 +35,7 @@ def get_model(date, key='o3', bbox=None, model='naqfc'):
             key = 'o3'
         elif key == 'pm25':
             key = 'pm25_rh35_gcc'
-        var = get_geoscf(date, key='pm25_rh35_gcc', bbox=bbox)
+        var = get_geoscf(date, key=key, bbox=bbox)
     elif model == 'GOES':
         assert (key == 'pm25')
         var = get_goesgwr(date, key=key, bbox=bbox)
