@@ -5,7 +5,7 @@ from .geoscf import get_mostrecent as get_geoscf
 from .goes import get_goesgwr
 
 
-def get_model(date, key='o3', bbox=None, model='naqfc'):
+def get_model(date, key='o3', bbox=None, model='naqfc', verbose=0):
     """
     Arguments
     ---------
@@ -17,6 +17,8 @@ def get_model(date, key='o3', bbox=None, model='naqfc'):
         swlon, swlat, nelon, nelat in decimal degrees
     model : str
         Which mdoel to get: naqfc, geoscf, goes (case insensitive)
+    verbose : int
+        Level of verbosity
 
     Returns
     -------
@@ -26,10 +28,10 @@ def get_model(date, key='o3', bbox=None, model='naqfc'):
     model = model.upper()
     if model == 'NAQFC':
         if key in ('o3', 'ozone'):
-            key = 'LYUZ99_KWBP'
+            key = 'YBPZ99_KWBP'
         elif key == 'pm25':
-            key = 'LZQZ99_KWBP'
-        var = get_naqfc(date, key=key, bbox=bbox)
+            key = 'LOPZ99_KWBP'
+        var = get_naqfc(date, key=key, bbox=bbox, verbose=verbose)
     elif model == 'GEOSCF':
         if key in ('o3', 'ozone'):
             key = 'o3'
@@ -38,7 +40,7 @@ def get_model(date, key='o3', bbox=None, model='naqfc'):
         var = get_geoscf(date, key=key, bbox=bbox)
     elif model == 'GOES':
         assert (key == 'pm25')
-        var = get_goesgwr(date, key=key, bbox=bbox)
+        var = get_goesgwr(date, key=key, bbox=bbox, verbose=verbose)
     else:
         raise KeyError(f'{model} unknown')
 
