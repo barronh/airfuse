@@ -71,8 +71,35 @@ gw_y = gwf_y[300:1500]
 
 
 def get_goesgwr(
-    bdate, key='pm25', varkey='pm25gwr_ge', bbox=None, path=None
+    bdate, key='pm25', varkey='pm25gwr_ge', bbox=None, path=None, verbose=0
 ):
+    """
+    Aquire GOES data as a model (i.e., not as an observations).
+
+    Arguments
+    ---------
+    bdate : datetime
+        Hour of data to retrieve for GOES.
+    key : str
+        Species to retrieve
+    varkey : str
+        Choices 'pm25gwr_ge', 'pm25gwr_gw', 'pm25dnn_ge', 'pm25dnn_gw'
+        gwr is base geographic weighted regression
+        dnn is the deep neural network update
+    bbox : tuple
+        Defaults to None, which is all data returned
+        Otherwise provide bounding box (swlon, swlat, nelon, nelat) in degrees
+    path : str
+        Archvie path to store retrieved data.
+    verbose: int
+        Level of verbosity
+
+    Returns
+    -------
+    var : xr.DataArray
+        DataArray with values at cell centers and a projection stored as
+        the attribute crs_proj4
+    """
     from ..util import get_file
     import pandas as pd
 

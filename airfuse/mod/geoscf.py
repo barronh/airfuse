@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 def get_mostrecent(
     bdate, key='o3', bbox=None, failback='24h', resfac=4, filedate=None,
-    path=None
+    path=None, verbose=0
 ):
     """
     Arguments
@@ -25,6 +25,8 @@ def get_mostrecent(
         Date of the file
     path : str or None
         Path to archive result for reuse
+    verbose : int
+        Level of verbosity
 
     Returns
     -------
