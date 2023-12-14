@@ -16,7 +16,7 @@ import warnings
 
 def pmfuse(
     startdate, model, bbox=None, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, **kwds
+    outdir=None, overwrite=False, api_key=None, verbose=0, **kwds
 ):
     date = startdate
     model = model.upper()
@@ -79,7 +79,7 @@ nearest obs.
     logging.info(f'AirFuse {__version__}')
     logging.info(f'Output dir: {outdir}')
 
-    pm = get_model(date, key=obskey, bbox=bbox, model=model)
+    pm = get_model(date, key=obskey, bbox=bbox, model=model, verbose=verbose)
 
     # When merging fused surfaces, PurpleAir is treated as never being closer
     # than half the diagonal distance. Thsi ensures that AirNow will be the

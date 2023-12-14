@@ -15,7 +15,7 @@ import warnings
 
 def fuse(
     obssource, species, startdate, model, bbox=None, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, **kwds
+    outdir=None, overwrite=False, api_key=None, verbose=0, **kwds
 ):
     """
     Arguments
@@ -70,7 +70,9 @@ def fuse(
     logging.info(f'AirFuse {__version__}')
     logging.info(f'Output dir: {outdir}')
 
-    modvar = get_model(date, key=species, bbox=bbox, model=model)
+    modvar = get_model(
+        date, key=species, bbox=bbox, model=model, verbose=verbose
+    )
 
     proj = pyproj.Proj(modvar.attrs['crs_proj4'], preserve_units=True)
     logging.info(proj.srs)

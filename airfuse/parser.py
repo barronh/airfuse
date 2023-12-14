@@ -15,6 +15,10 @@ def get_parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        '-v', '--verbose', action='count', default=0,
+        help='Add -v to make more verbose. Add -v -v for more verbose. etc'
+    )
+    parser.add_argument(
       '-O', '--overwrite', default=False, action='store_true',
       help='Overwrite existing files'
     )
