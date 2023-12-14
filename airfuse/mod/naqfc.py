@@ -99,6 +99,13 @@ def open_mostrecent(
     edate = pd.to_datetime(bdate) + pd.to_timedelta('1H')
     if filedate is None:
         filedate = bdate
+    if key.startswith('LOPZ99'):
+        newkey = key.replace('LOPZ99', 'LZQZ99')
+        logging.info(
+            f'Archived BC-corrected ({key}) not available;'
+            + f' will be replaced with {newkey}'
+        )
+        key = newkey
     paths = getpaths(filedate, service='dodsC', key=key)
     if len(paths) == 0:
         raise IOError('Could not find relevant file.')
@@ -168,16 +175,22 @@ def open_operational(
     import pyproj
     import numpy as np
 
-    if key.startswith('LZQZ99'):
+    if key.startswith('LZQZ99') or key.startswith('LOPZ99'):
         oldkey = 'pmtf'
         varkey = 'Particulate_matter_fine_sigma_1_Hour_Average'
         nwscode = 'apm25h01'
         ncepcode = 'ave_1hr_pm25'
-    elif key.startswith('LYUZ99'):
+        if key.startswith('LOPZ99'):
+            nwscode = nwscode + '_bc'
+            ncepcode = ncepcode + '_bc'
+    elif key.startswith('LYUZ99') or key.startswith('YBPZ99'):
         oldkey = 'ozcon'
         varkey = 'Ozone_Concentration_sigma_1_Hour_Average'
         nwscode = 'ozone01'
         ncepcode = 'ave_1hr_o3'
+        if key.startswith('YBPZ99'):
+            nwscode = nwscode + '_bc'
+            ncepcode = ncepcode + '_bc'
 
     bdate = pd.to_datetime(bdate)
     edate = bdate + pd.to_timedelta('1H')
@@ -297,7 +310,10 @@ def get_mostrecent(
     bdate : datetime-like
         Beginning hour of date to extract
     key : str
-        LZQZ99_KWBP (pm25) or LYUZ99_KWBP (ozone)
+        Hourly average CONUS: LZQZ99_KWBP (pm) or LYUZ99_KWBP (ozone)
+        w/ bias correction: LOPZ99_KWBP (pm) or YBPZ99_KWBP (ozone)
+        For more key options, see:
+        https://www.nws.noaa.gov/directives/sym/pd01005016curr.pdf
     bbox : tuple
         lower left lon, lower left lat, upper right lon, upper right lat
     failback : str
@@ -340,22 +356,22 @@ def get_mostrecent(
         # if the result is older than -1day, use NCEI
         if ds < (1.5 * 24 * 3600):
             if verbose > 0:
-                logger.info('Calling open_operational')
+                logger.info(f'Calling open_operational {key}')
             naqfcf = open_operational(
                 bdate, key=key, failback=failback, verbose=verbose
             )
         else:
             if verbose > 0:
-                logger.info('Calling open_mostrecent')
+                logger.info(f'Calling open_mostrecent {key}')
             naqfcf = open_mostrecent(
                 bdate.replace(tzinfo=None), key=key, failback=failback
             )
         if path is not None:
             naqfcf.to_netcdf(path)
 
-    if key.startswith('LZQZ99'):
+    if key.startswith('LZQZ99') or key.startswith('LOPZ99'):
         varkey = 'Particulate_matter_fine_sigma_1_Hour_Average'
-    elif key.startswith('LYUZ99'):
+    elif key.startswith('LYUZ99') or key.startswith('YBPZ99'):
         varkey = 'Ozone_Concentration_sigma_1_Hour_Average'
     else:
         raise KeyError(f'{key} unknown try LZQZ99_KWBP or LYUZ99_KWBP.')
