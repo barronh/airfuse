@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.5.3'
+__version__ = '0.6.0'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -23,6 +23,12 @@ changelog = '''
          * Update to pull NAQFC based on end hour.
 * 0.5.2: * Added NetCDF formatted output option.
 * 0.5.3: * Updated to_geopandas for backward matplotlib compatibility
+         * Updated to_geojson for convenience
+* 0.6.0: * Updated so that the default NAQFC is the KFAN product for both PM
+           and ozone. For archived dates, the KFAN is not available. The system
+           will switch to non-KFAN (raw forecast).
+         * Improved backward compatibility for matplotlib versions (only
+           affects) to_geopandas and to_geojson
 '''
 
 __doc__ = '''
