@@ -256,12 +256,11 @@ def to_geopandas(
     zmin = z.min() - 1e-20
     zmax = z.max() + 1e-20
     if colors is None:
-        colors = (
-            [
+        colors = [
                 '#009600', '#99cc00', '#ffff99', '#ffff00', '#ffcc00',
                 '#f79900', '#ff0000', '#d60093',
-            ][:len(edges) - 1]
-        )
+        ][:len(edges) - 1]
+
     colors = [c for c in colors]
     if zmin < edges[0] and under is not None:
         colors.insert(0, under)
@@ -306,11 +305,11 @@ def to_geopandas(
 
     assert len(pathgroups) == len(centers)
     for pi, pathg in enumerate(pathgroups):
-        for path in pathg:
+        polys = []
+        for ppi, path in enumerate(pathg):
             if path.codes is None:
                 continue
-            polys = []
-            nbadpoly = 0
+            nbadpoly = []
             rings = []
             xys = None
             for xy, c in zip(path.vertices, path.codes):
@@ -327,16 +326,20 @@ def to_geopandas(
             nr = len(rings)
             if nr > 0:
                 try:
+                    rings = [r for r in rings if len(r) > 3]
                     poly = Polygon(rings[0], rings[1:])
                     polys.append(poly)
-                except Exception:
-                    nbadpoly += 1
-            if nbadpoly > 0:
-                warnings.warn(f'*Lost {nbadpoly} polygons for {names[pi]}')
-            mpolys.append(dict(
-                Name=names[pi], AQIC=centers[pi], geometry=MultiPolygon(polys),
-                OGR_STYLE=f'BRUSH(fc:{colors[pi]})',
-            ))
+                except Exception as e:
+                    nbadpoly.append(e)
+            if len(nbadpoly) > 0:
+                warnings.warn(
+                    f'*Lost {len(nbadpoly)} poly for {names[pi]}: {nbadpoly}'
+                )
+        mpolys.append(dict(
+            Name=names[pi], AQIC=centers[pi], geometry=MultiPolygon(polys),
+            OGR_STYLE=f'BRUSH(fc:{colors[pi]})',
+        ))
+
     if len(mpolys) == 0:
         gdf = gpd.GeoDataFrame([
                 dict(Name='BLANK', AQIC=-999, OGR_STYLE='BRUSH(fc:#808080')
