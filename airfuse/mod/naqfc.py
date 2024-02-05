@@ -244,6 +244,8 @@ def open_operational(
             )
         if verbose > 0:
             logger.info(url)
+
+        tf = None
         try:
             if verbose > 1:
                 logger.info(f'URL: {url}')
@@ -253,7 +255,9 @@ def open_operational(
                     logger.info(f'Code {r.status_code} {url}')
                 continue
 
-            with tempfile.NamedTemporaryFile() as tf:
+
+            # Windows requires delete=False in order to open the file a second time
+            with tempfile.NamedTemporaryFile(delete=False) as tf:
                 tf.write(r.content)
                 f = xr.open_dataset(tf.name, engine='cfgrib')
                 f = f.drop_vars(['latitude', 'longitude'])
@@ -290,6 +294,10 @@ def open_operational(
             continue
         except Exception as e:
             raise e
+        finally:
+            # Ensure that the temporary file unlinked
+            if tf:
+                os.unlink(tf.name)
     else:
         filedate = filedate - pd.to_timedelta(failback)
         return open_operational(
