@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.6.0'
+__version__ = '0.6.1'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -29,6 +29,7 @@ changelog = '''
            will switch to non-KFAN (raw forecast).
          * Improved backward compatibility for matplotlib versions (only
            affects) to_geopandas and to_geojson
+* 0.6.1: * Updates for windows compatibility with NOAA forecast temp files.
 '''
 
 __doc__ = '''

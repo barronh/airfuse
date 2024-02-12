@@ -255,8 +255,7 @@ def open_operational(
                     logger.info(f'Code {r.status_code} {url}')
                 continue
 
-
-            # Windows requires delete=False in order to open the file a second time
+            # Windows requires delete=False to open the file a second time
             with tempfile.NamedTemporaryFile(delete=False) as tf:
                 tf.write(r.content)
                 f = xr.open_dataset(tf.name, engine='cfgrib')
