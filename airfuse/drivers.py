@@ -73,7 +73,7 @@ def fuse(
     modvar = get_model(
         date, key=species, bbox=bbox, model=model, verbose=verbose
     )
-
+    logging.info(f'Model: {modvar.description}')
     proj = pyproj.Proj(modvar.attrs['crs_proj4'], preserve_units=True)
     logging.info(proj.srs)
 
@@ -86,7 +86,7 @@ def fuse(
         obsdf = pair_purpleair(
             date, bbox, proj, modvar, obskey, api_key=api_key
         )
-
+    logging.info(f'{obssource} N={obsdf.shape[0]}')
     vardescs = {
       'NAQFC': 'NOAA Forecast (NAQFC)',
       f'IDW_{obskey}': f'NN weighted (n=10, d**-5) AirNow {obskey}',
@@ -98,8 +98,8 @@ def fuse(
         k: dict(description=v, units='micrograms/m**3')
         for k, v in vardescs.items()
     }
-
-    fdesc = """Fusion of observations (AirNow and PurpleAir) using residual
+    nowstr = pd.to_datetime('now', utc=True).strftime('%Y-%m-%dT%H:%M:%S%z')
+    fdesc = f"""Fusion of observations (AirNow and PurpleAir) using residual
 interpolation and correction of the NOAA NAQFC forecast model. The bias is
 estimated in real-time using AirNow and PurpleAir measurements. It is
 interpolated using the average of either nearest neighbors (IDW) or the
@@ -107,6 +107,10 @@ Voronoi/Delaunay neighbors (VNA). IDW uses 10 nearest neighbors with a
 weight equal to distance to the -5 power. VNA uses just the Delaunay
 neighbors and a weight equal to distnace to the -2 power. The aVNA and aIDW
 use an additive bias correction using these interpolations.
+
+{model}: {modvar.description}
+{obssource} N=: {obsdf.shape[0]}
+updated: {nowstr}
 """
 
     models = get_fusions()
@@ -140,7 +144,8 @@ use an additive bias correction using these interpolations.
                 'institution': 'US Environmental Protection Agency',
                 'description': fdesc, 'crs_proj4': proj.srs,
                 'reftime': metarow['reftime'].strftime('%Y-%m-%dT%H:%M:%S%z'),
-                'sigma': metarow['sigma']
+                'sigma': metarow['sigma'],
+                'updated': nowstr
             }
             tgtds = df2nc(tgtdf, varattrs, fileattrs)
             tgtds.to_netcdf(fusepath)

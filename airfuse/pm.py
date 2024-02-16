@@ -12,13 +12,15 @@ import os
 import logging
 from . import __version__
 import warnings
+import pandas as pd
 
 
 def pmfuse(
     startdate, model, bbox=None, cv_only=False,
     outdir=None, overwrite=False, api_key=None, verbose=0, **kwds
 ):
-    date = startdate
+
+    date = pd.to_datetime(startdate)
     model = model.upper()
     obskey = 'pm25'
 
@@ -80,7 +82,8 @@ nearest obs.
     logging.info(f'Output dir: {outdir}')
 
     pm = get_model(date, key=obskey, bbox=bbox, model=model, verbose=verbose)
-
+    logging.info(f'{model}: {pm.description}')
+    fdesc = '\n'.join([fdesc, f'{model}: {pm.description}'])
     # When merging fused surfaces, PurpleAir is treated as never being closer
     # than half the diagonal distance. Thsi ensures that AirNow will be the
     # preferred estimate within a grid cell if it exists. This is particularly
@@ -93,7 +96,11 @@ nearest obs.
     logging.info(proj.srs)
 
     andf = pair_airnow(date, bbox, proj, pm, obskey)
+    logging.info(f'AirNow N={andf.shape[0]}')
+    fdesc = '\n'.join([fdesc, f'AirNow N={andf.shape[0]}'])
     padf = pair_purpleair(date, bbox, proj, pm, obskey, api_key=api_key)
+    logging.info(f'PurpleAir N={padf.shape[0]}')
+    fdesc = '\n'.join([fdesc, f'PurpleAir N={padf.shape[0]}'])
 
     models = get_fusions()
 
