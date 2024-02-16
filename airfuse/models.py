@@ -91,7 +91,7 @@ def applyfusion(
     if loo:
         if verbose > 0:
             logging.info('Starting LOO')
-        looz = mod.predict(fitdf[xkeys], loo=True)
+        looz = mod.predict(fitdf[xkeys].values, loo=True)
         for ykey, y in zip(ykeys, looz.T):
             fitdf[f'LOO_{prefix}_{ykey}'] = y
         avna = fitdf[modkey] - fitdf[f'LOO_{prefix}_{biaskey}']
@@ -104,7 +104,7 @@ def applyfusion(
     if loodf is not None and fitdf.shape[0] > 1:
         if verbose > 0:
             logging.info('Starting secondary LOO')
-        looz = mod.predict(loodf[xkeys], loo=True)
+        looz = mod.predict(loodf[xkeys].values, loo=True)
         for ykey, y in zip(ykeys, looz.T):
             loodf[f'LOO_{prefix}_{ykey}'] = y
         avna = loodf[modkey] - loodf[f'LOO_{prefix}_{biaskey}']
