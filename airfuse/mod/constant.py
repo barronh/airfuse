@@ -1,8 +1,9 @@
-__all__ = ['get_zeros']
+__all__ = ['get_constant']
 
 
-def get_zeros(
-    bdate, key='o3', bbox=None, failback='24h', path=None, verbose=0
+def get_constant(
+    bdate, key='o3', bbox=None, failback='24h', path=None, verbose=0,
+    default=0.
 ):
     """
     If within the last two days, open operational forecast.
@@ -23,19 +24,14 @@ def get_zeros(
         Not used.
     verbose : int
         Level of verbosity
+    default : float
+        Constant default value
 
     Returns
     -------
     var : xr.DataArray
         DataArray with values at cell centers and a projection stored as
         the attribute crs_proj4
-
-    To-do
-    -----
-    1. Update so that it can pull from live NWS feed
-      https://tgftp.nws.noaa.gov/SL.us008001/ST.opnl/DF.gr2/DC.ndgd/GT.aq/
-    2. Update so that it can pull from Hawaii or Alaska feeds
-    3. Update so that it can pull from global feed
     """
     from .naqfc import getgrid, addcrs
     import numpy as np
@@ -43,11 +39,12 @@ def get_zeros(
     import xarray as xr
     import pyproj
 
-
     gridds = getgrid()
     addcrs(gridds)
-    gridds['zero'] = (('y', 'x'), np.zeros((gridds.sizes['y'], gridds.sizes['x'])))
-    var = gridds['zero']
+    vals = np.zeros((gridds.sizes['y'], gridds.sizes['x'])), dtype='f')
+    vals[:] = default
+    gridds['constant'] = (('y', 'x'), vals
+    var = gridds['constant']
     if bbox is not None:
         # Find lon/lat coordinates of projected cell centroids
         proj = pyproj.Proj(gridds.attrs['crs_proj4'])
@@ -65,5 +62,5 @@ def get_zeros(
     var.coords['sigma'] = 1.0
     var.coords['time'] = pd.to_datetime(bdate)
     var.attrs['crs_proj4'] = gridds.crs_proj4
-    var.attrs['description'] = 'zeros on the NAQFC grid'
+    var.attrs['description'] = f'constant ({default}) on the NAQFC grid'
     return var
