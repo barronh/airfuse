@@ -3,6 +3,7 @@ __all__ = ['get_model']
 from .naqfc import get_mostrecent as get_naqfc
 from .geoscf import get_mostrecent as get_geoscf
 from .goes import get_goesgwr
+from .null import get_zeros
 
 
 def get_model(date, key='o3', bbox=None, model='naqfc', verbose=0):
@@ -41,6 +42,8 @@ def get_model(date, key='o3', bbox=None, model='naqfc', verbose=0):
     elif model == 'GOES':
         assert (key == 'pm25')
         var = get_goesgwr(date, key=key, bbox=bbox, verbose=verbose)
+    elif model == 'NULL':
+        var = get_zeros(date, key=key, bbox=bbox, verbose=verbose)
     else:
         raise KeyError(f'{model} unknown')
 
