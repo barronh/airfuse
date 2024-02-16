@@ -9,13 +9,27 @@ import matplotlib.cm as cm
 import numpy as np
 # From AQI guidance on airnow
 aqicolors = [mc.to_hex(c) for c in np.array([
-    [0, 228, 0, ],
-    [255, 255, 0],
-    [255, 126, 0],
-    [255, 0, 0],
-    [143, 63, 151],
-    [126, 0, 35]
+    [0, 228, 0, ], [255, 255, 0], [255, 126, 0], [255, 0, 0],
+    [143, 63, 151], [126, 0, 35]
 ]) / 256]
+
+ant1hpmcolors = [
+    [0, 150, 0], [153, 204, 0], [255, 255, 153], [255, 255, 0],
+    [255, 204, 0], [247, 153, 0], [255, 0, 0], [214, 0, 147],
+]
+ant1hpmcolors = [mc.to_hex(c) for c in np.array(ant1hpmcolors) / 256]
+ant1hpmedges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
+
+ant1ho3colors = [
+    [0, 255, 0],
+    [255, 255, 128],
+    [255, 255, 0],
+    [252, 191, 67],
+    [255, 128, 0],
+    [255, 0, 0],
+]
+ant1ho3colors = [mc.to_hex(c) for c in np.array(ant1ho3colors) / 256]
+ant1ho3edges = [0, 60, 80, 100, 112, 125, 1000]
 
 aqiedges = np.array([0, 50, 100, 150, 200, 300, 500])
 aqiedges2 = np.array(
@@ -44,5 +58,16 @@ epa_pmaqi2_norm = mc.BoundaryNorm(pmedges2, len(pmedges2) - 1)
 epa_pmaqi_norm = mc.BoundaryNorm(pmedges, len(pmedges) - 1)
 epa_o3aqi2_norm = mc.BoundaryNorm(o3edges2, len(o3edges2) - 1)
 epa_o3aqi_norm = mc.BoundaryNorm(o3edges, len(o3edges) - 1)
+ant_1ho3_cmap = from_list('ant_1ho3', ant1ho3colors, len(ant1ho3edges) - 1)
+ant_1ho3_cmap.set_under(ant1ho3colors[0])
+ant_1ho3_cmap.set_over(ant1ho3colors[-1])
+ant_1ho3_norm = mc.BoundaryNorm(ant1ho3edges, len(ant1ho3edges) - 1)
+ant_1hpm_cmap = from_list('ant_1hpm', ant1hpmcolors, len(ant1hpmedges) - 1)
+ant_1hpm_cmap.set_under(ant1hpmcolors[0])
+ant_1hpm_cmap.set_over(ant1hpmcolors[-1])
+ant_1hpm_norm = mc.BoundaryNorm(ant1hpmedges, len(ant1hpmedges) - 1)
+
 cm.register_cmap('epa_aqi', epa_aqi_cmap)
 cm.register_cmap('epa_aqi2', epa_aqi2_cmap)
+cm.register_cmap('ant_1hpm', ant_1hpm_cmap)
+cm.register_cmap('ant_1ho3', ant_1ho3_cmap)

@@ -356,7 +356,10 @@ def to_geopandas(
     return gdf, cmap, norm
 
 
-def to_geojson(outpath, *args, simplify=.01, precision=5, outcrs=4326, **kwds):
+def to_geojson(
+    outpath, *args, simplify=.01, precision=5, outcrs=4326, description=None,
+    **kwds
+):
     """
     Thin wrapper around to_geopandas with addition arguments. See to_geopandas
     for definition of other arguments (x, y, z, colors, edges, names, over,
@@ -370,6 +373,10 @@ def to_geojson(outpath, *args, simplify=.01, precision=5, outcrs=4326, **kwds):
         Level of simplification that occurs in long/lat space.
     precision : int
         Level of precision to hold in output coordinate.
+    description : str
+        If not None, add DESCRIPTON to driver_options
+    kwds: mappable
+        Passed to to_geopandas
 
     Returns
     -------
@@ -397,6 +404,9 @@ def to_geojson(outpath, *args, simplify=.01, precision=5, outcrs=4326, **kwds):
         'driver': 'GeoJSON',
         'COORDINATE_PRECISION': 7
     }
+    if description is not None:
+        driver_opts['DESCRIPTION'] = description
+
     gdf.to_file(outpath, **driver_opts)
 
 
