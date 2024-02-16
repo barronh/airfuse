@@ -41,6 +41,30 @@ def getpaths(date, key, service='fileServer'):
     ]
 
 
+def getgrid(key='LZQZ99_KWBP'):
+    """
+    key : str
+        NCEP code for forecast (e.g., LZQZ99_KWBP)
+    """
+    import os
+    import xarray as xr
+
+    gridpath = f'{key}_GRID.nc'
+    if not os.path.exists(gridpath):
+        # this is an arbitrary NDGD file with a known grid
+        # it's grid is consistent with KWBP CONUS runs
+        expath = (
+            'https://www.ncei.noaa.gov/thredds/dodsC/model-ndgd-file/'
+            '202107/20210731/LZQZ99_KWBP_202107311100'
+        )
+        gridkeys = ['LambertConformal_Projection', 'y', 'x']
+        gridds = xr.open_dataset(expath)[gridkeys].load()
+        gridds.reset_coords('reftime', drop=True).to_netcdf(gridpath)
+        gridds.attrs['file_url'] = expath
+    gridds = xr.open_dataset(gridpath).load()
+    return gridds
+
+
 def addcrs(naqfcf):
     """
     Adds projection to naqfcf
@@ -96,7 +120,7 @@ def open_mostrecent(
     """
     import xarray as xr
     import pandas as pd
-    edate = pd.to_datetime(bdate) + pd.to_timedelta('1H')
+    edate = pd.to_datetime(bdate) + pd.to_timedelta('1h')
     if filedate is None:
         filedate = bdate
     if key.startswith('LOPZ99'):
@@ -118,6 +142,7 @@ def open_mostrecent(
                 naqfcf.coords['time'] + pd.to_timedelta('-30min')
             )
             addcrs(naqfcf)
+            naqfcf.attrs['file_url'] = path
             return naqfcf
         except KeyError as e:
             last_err = e
@@ -191,24 +216,15 @@ def open_operational(
         if key.startswith('YBPZ99'):
             nwscode = nwscode + '_bc'
             ncepcode = ncepcode + '_bc'
+    else:
+        raise KeyError(f'Unknown key {key}')
 
     bdate = pd.to_datetime(bdate)
-    edate = bdate + pd.to_timedelta('1H')
+    edate = bdate + pd.to_timedelta('1h')
     if filedate is None:
         filedate = bdate.floor('1d')
 
-    gridpath = f'{key}_GRID.nc'
-    if not os.path.exists(gridpath):
-        # this is an arbitrary NDGD file with a known grid
-        # it's grid is consistent with KWBP CONUS runs
-        expath = (
-            'https://www.ncei.noaa.gov/thredds/dodsC/model-ndgd-file/'
-            '202107/20210731/LZQZ99_KWBP_202107311100'
-        )
-        gridkeys = ['LambertConformal_Projection', 'y', 'x']
-        gridds = xr.open_dataset(expath)[gridkeys].load()
-        gridds.reset_coords('reftime', drop=True).to_netcdf(gridpath)
-    gridds = xr.open_dataset(gridpath).load()
+    gridds = getgrid(key)
 
     # nws_cf227_proj4 = (
     #     '+proj=lcc +lat_1=25 +lat_0=25 +lon_0=265 +k_0=1 +x_0=0 +y_0=0'
@@ -221,15 +237,15 @@ def open_operational(
     nws_cf227_proj4 = proj.srs.replace('units=m', 'units=km')
     # 0 and 18Z have only 6h... should these be used at all?
     for sh in [18, 12, 6, 0]:
-        firsth = filedate + pd.to_timedelta(sh + 1, unit='H')
+        firsth = filedate + pd.to_timedelta(sh + 1, unit='h')
         lasth = filedate + pd.to_timedelta(
-            {18: 6, 12: 72, 6: 72, 0: 6}[sh] + 1, unit='H'
+            {18: 6, 12: 72, 6: 72, 0: 6}[sh] + 1, unit='h'
         )
         if firsth > edate:
             continue
         if lasth < edate:
             continue
-        # dt = bdate - filedate - pd.to_timedelta(sh, unit='H')
+        # dt = bdate - filedate - pd.to_timedelta(sh, unit='h')
         # fh = round(dt.total_seconds() / 3600, 0)
         if source == 'ncep':
             url = (
@@ -284,6 +300,7 @@ def open_operational(
                 outf.coords['time'] = (
                     outf.coords['time'] + pd.to_timedelta('-30min')
                 )
+                outf.attrs['file_url'] = url
                 return outf
         except requests.models.HTTPError:
             continue
@@ -399,4 +416,7 @@ def get_mostrecent(
     var.attrs['crs_proj4'] = naqfcf.attrs['crs_proj4']
     var.attrs['long_name'] = varkey
     var.name = 'NAQFC'
+    nowstr = pd.to_datetime('now', utc=True).strftime('%Y-%m-%dT%H:%M:%S')
+    fileurl = naqfcf.attrs['file_url']
+    var.attrs['description'] = f'{fileurl} (retrieved: {nowstr}Z)'
     return var

@@ -55,9 +55,8 @@ def get_mostrecent(
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            f = xr.open_dataset(
-                f'{fcast}/{froot}.{filedate:%Y%m%d}_12z'
-            )
+            fileurl = f'{fcast}/{froot}.{filedate:%Y%m%d}_12z'
+            f = xr.open_dataset(fileurl)
         var = f[key].sel(time=mdate, method='nearest')
     except Exception as e:
         logger.info(str(e))
@@ -81,4 +80,6 @@ def get_mostrecent(
         xi = np.linspace(var.x.min(), var.x.max(), (var.x.size - 1) * 4 + 1)
         yi = np.linspace(var.y.min(), var.y.max(), (var.y.size - 1) * 4 + 1)
         var = var.interp(x=xi, y=yi)
+    nowstr = pd.to_datetime('now', utc=True).strftime('%Y-%m-%dT%H:%M:%S')
+    var.attrs['description'] = f'{fileurl} (retrieved: {nowstr}Z)'
     return var

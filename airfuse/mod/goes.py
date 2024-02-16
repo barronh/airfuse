@@ -127,6 +127,8 @@ def get_goesgwr(
     else:
         raise KeyError(f'Variable keys must end in _ge or _gw; got {varkey}')
 
+    nowstr = pd.to_datetime('now', utc=True).strftime('%Y-%m-%dT%H:%M:%S')
+    da.attrs['description'] = f'{remotepath} (retrieved: {nowstr}Z)'
     return da
 
 
