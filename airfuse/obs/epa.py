@@ -26,6 +26,8 @@ def pair_airnow(bdate, bbox, proj, var, spc, verbose=1):
         Model variable with values on centers
     spc : str
         Name of the species to retrieve from AirNow via AirNowAPI
+    verbose : int
+        Level of verbosity
 
     Returns
     -------
@@ -72,6 +74,8 @@ def pair_aqs(bdate, bbox, proj, var, spc, verbose=1):
         If a str, it must either be the API key or a path to a file with only
         the API key in its contents.
         If None, the API key must exist in ~/.aqskey
+    verbose : int
+        Level of verbosity
 
     Returns
     -------
@@ -85,7 +89,9 @@ def pair_aqs(bdate, bbox, proj, var, spc, verbose=1):
     return pair_aqsrsig(bdate, bbox, proj, var, spc)
 
 
-def pair_airnowapi(bdate, bbox, proj, var, spc, api_key=None):
+def pair_airnowapi(
+    bdate, bbox, proj, var, spc, api_key=None, montype=2, verbose=1
+):
     """
     Get obs from AirNowAPI and pair with model variable (var)
 
@@ -105,6 +111,12 @@ def pair_airnowapi(bdate, bbox, proj, var, spc, api_key=None):
         If a str, it must either be the API key or a path to a file with only
         the API key in its contents.
         If None, the API key must exist in ~/.airnowkey
+    montype : int
+        0 - regulatory monitors
+        1 - mobile monitors
+        2 - both
+    verbose : int
+        Level of verbosity
 
     Returns
     -------
@@ -133,12 +145,22 @@ def pair_airnowapi(bdate, bbox, proj, var, spc, api_key=None):
 
     bdate = pd.to_datetime(bdate)
     edate = bdate + pd.to_timedelta('3599s')
+    if montype in (1, 2):
+        now = pd.to_datetime('now', utc=True).floor('1d')
+        dt = (now - bdate)
+        dtd = dt.total_seconds() / 3600 / 24
+        if verbose > 0 and dtd > 2:
+            logger.warn(
+                'pair_airnowapi using mobile monitors more than 2 days old;'
+                + ' historic locations of mobile monitors via api are not'
+                + ' reliable.'
+            )
     bbox_str = '{},{},{},{}'.format(*bbox)
     r = requests.get(
         'https://www.airnowapi.org/aq/data/?'
         f'startDate={bdate:%Y-%m-%dT%H}&endDate={edate:%Y-%m-%dT%H}'
         + f'&parameters={spc.upper()}&BBOX={bbox_str}&'
-        + 'dataType=C&format=application/json&verbose=1&monitorType=0'
+        + f'dataType=C&format=application/json&verbose=1&monitorType={montype}'
         + f'&includerawconcentrations=1&API_KEY={api_key}')
     df = pd.DataFrame.from_records(r.json())
     df = df.replace(-999., np.nan)
@@ -190,7 +212,7 @@ def pair_airnowaqobsfile(bdate, bbox, proj, var, spc):
         + f'{bdate:%Y/%Y%m%d/HourlyAQObs_%Y%m%d%H}.dat'
     )
     spckey = {'pm25': 'PM25', 'ozone': 'OZONE'}[spc.lower()]
-    df = pd.read_csv(url).query(
+    df = pd.read_csv(url, encoding='latin1').query(
         f'{spckey}_Measured == 1 and {spckey} == {spckey}'
         + f' and Latitude >= {bbox[1]} and Latitude <= {bbox[3]}'
         + f' and Longitude >= {bbox[0]} and Longitude <= {bbox[2]}'
@@ -238,7 +260,7 @@ def pair_airnowhourlydatafile(bdate, bbox, proj, var, spc):
         before pairing with the model.
     """
     import pandas as pd
-    spckey = {'pm25': 'PM2.5'}
+    spckey = {'pm25': 'PM2.5'}[spc]
     airnowroot = 'https://files.airnowtech.org/airnow'
     airnowsitecols = (
         'AQSID|parameter_name|site_code|site_name|status|agency_id'
@@ -258,15 +280,19 @@ def pair_airnowhourlydatafile(bdate, bbox, proj, var, spc):
     ).split('|')
     obsonlydf = pd.read_csv(
         f'{airnowroot}/{bdate:%Y/%Y%m%d/HourlyData_%Y%m%d%H}.dat',
-        delimiter='|', names=airnowobscols
+        encoding='latin1', delimiter='|', names=airnowobscols
+    ).query(
+        f'parameter_name == "{spckey}"'
+    )
+    obsonlydf['AQSID'] = obsonlydf['AQSID'].astype(str)
+    sitemetadf['AQSID'] = sitemetadf['AQSID'].astype(str)
+    df = obsonlydf.merge(
+        sitemetadf.loc[:, ['AQSID', 'agency_name', 'Latitude', 'Longitude']],
+        on='AQSID', how='inner'
     ).query(
         f'parameter_name == "{spckey}"'
         + f' and Latitude >= {bbox[1]} and Latitude <= {bbox[3]}'
         + f' and Longitude >= {bbox[0]} and Longitude <= {bbox[2]}'
-    )
-    df = obsonlydf.join(
-        sitemetadf.loc[:, ['agency_name', 'Latitude', 'Longitude']],
-        on='AQSID', how='inner'
     )
     df['x'], df['y'] = proj(df['Longitude'].values, df['Latitude'].values)
     df[var.name] = var.sel(

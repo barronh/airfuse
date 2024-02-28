@@ -46,3 +46,49 @@ def test_pm():
 def test_ozone():
     _test_srcspc('ozone', 'airnow')
     _test_srcspc('ozone', 'aqs')
+
+
+def test_airnowapi():
+    from ..obs import epa
+    import pyproj
+    import pandas as pd
+
+    date = pd.to_datetime('2024-02-28T18Z')
+    obskey = 'pm25'
+    bbox = (-130, 20, -60, 55)
+
+    modvar = get_dummyvar()
+    proj = pyproj.Proj(modvar.crs_proj4)
+    obsdf0 = epa.pair_airnowapi(date, bbox, proj, modvar, obskey, montype=0)
+    obsdf2 = epa.pair_airnowapi(date, bbox, proj, modvar, obskey)
+    assert (obsdf2.shape[0] >= obsdf0.shape[0])
+
+
+def test_airnowaqobsfile():
+    from ..obs import epa
+    import pyproj
+    import pandas as pd
+
+    date = pd.to_datetime('2024-01-01T00Z')
+    obskey = 'pm25'
+    bbox = (-130, 20, -60, 55)
+
+    modvar = get_dummyvar()
+    proj = pyproj.Proj(modvar.crs_proj4)
+    obsdf0 = epa.pair_airnowaqobsfile(date, bbox, proj, modvar, obskey)
+    assert (obsdf0.shape[0] > 0)
+
+
+def test_airnowhourlydatafile():
+    from ..obs import epa
+    import pyproj
+    import pandas as pd
+
+    date = pd.to_datetime('2024-01-01T00Z')
+    obskey = 'pm25'
+    bbox = (-130, 20, -60, 55)
+
+    modvar = get_dummyvar()
+    proj = pyproj.Proj(modvar.crs_proj4)
+    obsdf0 = epa.pair_airnowhourlydatafile(date, bbox, proj, modvar, obskey)
+    assert (obsdf0.shape[0] > 0)

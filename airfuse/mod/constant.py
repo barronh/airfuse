@@ -41,9 +41,9 @@ def get_constant(
 
     gridds = getgrid()
     addcrs(gridds)
-    vals = np.zeros((gridds.sizes['y'], gridds.sizes['x'])), dtype='f')
+    vals = np.zeros((gridds.sizes['y'], gridds.sizes['x']), dtype='f')
     vals[:] = default
-    gridds['constant'] = (('y', 'x'), vals
+    gridds['constant'] = (('y', 'x'), vals)
     var = gridds['constant']
     if bbox is not None:
         # Find lon/lat coordinates of projected cell centroids

@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.6.1'
+__version__ = '0.7.0'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -30,6 +30,10 @@ changelog = '''
          * Improved backward compatibility for matplotlib versions (only
            affects) to_geopandas and to_geojson
 * 0.6.1: * Updates for windows compatibility with NOAA forecast temp files.
+* 0.6.2: * New ANT color palettes and added metadata in nc and geojson files.
+* 0.7.0: * Added capability for AirNow API to use "mobile monitors" (default).
+         * Fixed pair_airnowaqobsfile and pair_airnowhourlydatafile (unused)
+           and added testing for them.
 '''
 
 __doc__ = '''
