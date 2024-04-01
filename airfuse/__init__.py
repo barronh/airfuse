@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.7.0'
+__version__ = '0.7.1'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -34,6 +34,12 @@ changelog = '''
 * 0.7.0: * Added capability for AirNow API to use "mobile monitors" (default).
          * Fixed pair_airnowaqobsfile and pair_airnowhourlydatafile (unused)
            and added testing for them.
+* 0.7.1: * Updated some netcdf metadata options.
+         * Added NDGD_HISTORICAL environmental variable. If set to True, true,
+           Yes, or Y, then the NAQFC modeling from the THREDDS catalog will
+           be loaded from the historical subfolder. To see the historical
+           data holdings, go to the link below and choose historical 
+           www.ncei.noaa.gov/thredds/catalog/model-ndgd-file/catalog.html
 '''
 
 __doc__ = '''
