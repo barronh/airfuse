@@ -73,6 +73,7 @@ def fuse(
     modvar = get_model(
         date, key=species, bbox=bbox, model=model, verbose=verbose
     )
+    units = modvar.attrs.get('units', 'unknown').strip()
     logging.info(f'Model: {modvar.description}')
     proj = pyproj.Proj(modvar.attrs['crs_proj4'], preserve_units=True)
     logging.info(proj.srs)
@@ -95,7 +96,7 @@ def fuse(
       'aVNA': 'VNA of AirNow bias added to the NOAA NAQFC forecast',
     }
     varattrs = {
-        k: dict(description=v, units='micrograms/m**3')
+        k: dict(description=v, units=units)
         for k, v in vardescs.items()
     }
     nowstr = pd.to_datetime('now', utc=True).strftime('%Y-%m-%dT%H:%M:%S%z')
