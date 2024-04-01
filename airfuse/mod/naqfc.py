@@ -21,12 +21,19 @@ def getpaths(date, key, service='fileServer'):
     import xml.etree.ElementTree
     import requests
     import pandas as pd
+    import os
 
     pdate = pd.to_datetime(date)
-    r = requests.get(
-      'https://www.ncei.noaa.gov/thredds/catalog/model-ndgd-file/'
-      + f'{pdate:%Y%m/%Y%m%d}/catalog.xml'
-    )
+    croot = 'https://www.ncei.noaa.gov/thredds/catalog/model-ndgd-file'
+    # BHH: Undocumented feature to use the "historical" NCEI folder
+    # The NCEI NDGD folder is missing data from 2019-12-16 to 2020-05-08.
+    # (https://www.ncei.noaa.gov/thredds/catalog/model-ndgd-file/catalog.html)
+    # The historical subfolder has data from 2019-12-01 to 2020-05-15.
+    # (https://.../model-ndgd-file/historical/catalog.html)
+    if os.environ.get('NDGD_HISTORICAL', 'F')[:1] in ('T', 'Y', 't', 'y'):
+        croot = f'{croot}/historical'
+    catalogurl = f'{croot}/{pdate:%Y%m/%Y%m%d}/catalog.xml'
+    r = requests.get(catalogurl)
     et = xml.etree.ElementTree.fromstring(r.text)
     datasets = []
     for p in et:
