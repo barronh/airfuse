@@ -31,6 +31,7 @@ def pmfuse(
       'aIDW_AN': 'IDW of AirNow bias added to the NOAA NAQFC forecast',
       'aVNA_AN': 'VNA of AirNow bias added to the NOAA NAQFC forecast',
       'FUSED_aVNA': 'Fused surface from aVNA PurpleAir and aVNA AirNow',
+      'FUSED_eVNA': 'Fused surface from eVNA PurpleAir and eVNA AirNow',
       'FUSED_aIDW': 'Fused surface from aIDW PurpleAir and aIDW AirNow',
     }
     varattrs = {
