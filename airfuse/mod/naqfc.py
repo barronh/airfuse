@@ -412,9 +412,17 @@ def get_mostrecent(
         if ds < (1.5 * 24 * 3600):
             if verbose > 0:
                 logger.info(f'Calling open_operational {key}')
-            naqfcf = open_operational(
-                bdate, key=key, failback=failback, verbose=verbose
-            )
+            opts = dict(key=key, failback=failback, verbose=verbose)
+            # Cascaded fail system: first nomads, then ncep, then nws.
+            # If any succeeds, the rest are not tried.
+            for src in ['nomads', 'ncep', 'nws']:
+                try:
+                    naqfcf = open_operational(bdate, source=src, **opts)
+                    break
+                except Exception as e:
+                    logger.info(f'{src} failed: {str(e)}')
+            else:
+                raise IOError('nomads, ncep, and nws all failed.')
         else:
             if verbose > 0:
                 logger.info(f'Calling open_mostrecent {key}')
