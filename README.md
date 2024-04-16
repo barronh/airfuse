@@ -35,15 +35,17 @@ o3paths = fuse(
 
 ### Using pip
 
-airfuse currently requires the nna_methods package, which is a gist. So,
-installing requires two calls to pip.
+airfuse currently requires the nna_methods package, which is another github
+repository. So, installing requires two calls to pip.
 
 ```bash
+pip install git+https://github.com/barronh/nna_methods.git
 pip install git+https://github.com/barronh/airfuse.git
-pip install git+https://gist.github.com/barronh/08b6fc259e47badd70b9fdcf2b7039f1.git
 ```
 
 ### From Downloaded Source
+
+airfuse can also be installed by downloading the source code.
 
 ```
 wget https://github.com/barronh/airfuse/archive/refs/heads/main.zip
@@ -52,3 +54,8 @@ cd airfuse-main
 pip install -r requirements.txt
 pip install .
 ```
+
+## Feedback
+
+If you have feedback about airfuse, please
+[open an issue](https://github.com/barronh/airfuse/issues).

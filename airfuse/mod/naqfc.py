@@ -55,6 +55,7 @@ def getgrid(key='LZQZ99_KWBP'):
     """
     import os
     import xarray as xr
+    import requests
 
     gridpath = f'{key}_GRID.nc'
     if not os.path.exists(gridpath):
@@ -65,9 +66,25 @@ def getgrid(key='LZQZ99_KWBP'):
             '202107/20210731/LZQZ99_KWBP_202107311100'
         )
         gridkeys = ['LambertConformal_Projection', 'y', 'x']
-        gridds = xr.open_dataset(expath)[gridkeys].load()
-        gridds.reset_coords('reftime', drop=True).to_netcdf(gridpath)
-        gridds.attrs['file_url'] = expath
+        try:
+            gridds = xr.open_dataset(expath)[gridkeys].load()
+            gridds.attrs['file_url'] = expath
+            gridds.reset_coords('reftime', drop=True).to_netcdf(gridpath)
+        except Exception:
+            # If there is an exception, it means that the file could not be
+            # retrieved from the thredds catalog. A copy has been added to
+            # the repository for just such an occasion. In the future, this
+            # may be changed to be the default method
+            gridkey = key.split('_')[-1]
+            expath = (
+                'https://raw.githubusercontent.com/barronh/airfuse/main/grid/'
+                + f'{gridkey}_GRID.nc'
+            )
+            r = requests.get(expath)
+            r.raise_for_status()
+            with open(gridpath, 'wb') as gridf:
+                gridf.write(r.content)
+
     gridds = xr.open_dataset(gridpath).load()
     return gridds
 

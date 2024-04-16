@@ -9,9 +9,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 with open("airfuse/__init__.py", "r") as fh:
-    for l in fh:
-        if l.startswith('__version__'):
-            exec(l)
+    for ll in fh:
+        if ll.startswith('__version__'):
+            exec(ll)
             break
     else:
         __version__ = 'x.y.z'
@@ -35,8 +35,7 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         "xarray>=2023.11.0", "pandas>=1.1.5", "numpy>=1.19.5", "scipy>=1.5.4",
-        "netCDF4>=1.5.8", "pyproj>=2.6.1", "pyrsig"
-        # optionally required for reading real-time grib files.
-        # "cfgrib", "eccodes==1.2.0", "ecmwflibs"
+        "netCDF4>=1.5.8", "pyproj>=2.6.1", "pyrsig",
+        "cfgrib", "eccodes==1.2.0", "ecmwflibs"
     ],
 )
