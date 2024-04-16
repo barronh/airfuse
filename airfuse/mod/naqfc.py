@@ -165,7 +165,7 @@ def open_mostrecent(
 
 
 def open_operational(
-    bdate, key='LZQZ99_KWBP', filedate=None, source='ncep', failback='24h',
+    bdate, key='LZQZ99_KWBP', filedate=None, source='nomads', failback='24h',
     verbose=4
 ):
     """
@@ -186,10 +186,11 @@ def open_operational(
     verbose : int
         Level of verbosity.
     source : str
-        Source either 'nws' or 'ncep' and only applies when requesting a file
-        from the last two days.
+        Source either 'nws', 'ncep', or 'nomads' and only applies when
+        requesting a file from the last two days.
         * 'nws' is the true operational site.
         * 'ncep' provides more thorough file naming.
+        * 'nomads' is like 'ncep'
 
     Results
     -------
@@ -257,6 +258,12 @@ def open_operational(
         if source == 'ncep':
             url = (
                 'https://ftp.ncep.noaa.gov/data/nccf/com/aqm/prod/'
+                + f'cs.{filedate:%Y%m%d}/'
+                + f'aqm.t{sh:02d}z.{ncepcode}.227.grib2'
+            )
+        elif source == 'nomads':
+            url = (
+                'https://nomads.ncep.noaa.gov/pub/data/nccf/com/aqm/prod/'
                 + f'cs.{filedate:%Y%m%d}/'
                 + f'aqm.t{sh:02d}z.{ncepcode}.227.grib2'
             )
