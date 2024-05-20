@@ -4,9 +4,17 @@ __all__ = [
     'epa_o3aqi_norm', 'epa_o3aqi2_norm'
 ]
 
+import matplotlib as mpl
 import matplotlib.colors as mc
 import matplotlib.cm as cm
 import numpy as np
+
+# Provide 3.9+ compatibility and <=3.4.x backward compatibility
+try:
+    register = mpl.colormaps.register
+except AttributeError:
+    register = cm.register_cmap
+
 # From AQI guidance on airnow
 aqicolors = [mc.to_hex(c) for c in np.array([
     [0, 228, 0, ], [255, 255, 0], [255, 126, 0], [255, 0, 0],
@@ -67,7 +75,7 @@ ant_1hpm_cmap.set_under(ant1hpmcolors[0])
 ant_1hpm_cmap.set_over(ant1hpmcolors[-1])
 ant_1hpm_norm = mc.BoundaryNorm(ant1hpmedges, len(ant1hpmedges) - 1)
 
-cm.register('epa_aqi', epa_aqi_cmap)
-cm.register('epa_aqi2', epa_aqi2_cmap)
-cm.register('ant_1hpm', ant_1hpm_cmap)
-cm.register('ant_1ho3', ant_1ho3_cmap)
+register('epa_aqi', epa_aqi_cmap)
+register('epa_aqi2', epa_aqi2_cmap)
+register('ant_1hpm', ant_1hpm_cmap)
+register('ant_1ho3', ant_1ho3_cmap)
