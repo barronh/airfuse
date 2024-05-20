@@ -150,7 +150,7 @@ def pair_airnowapi(
         dt = (now - bdate)
         dtd = dt.total_seconds() / 3600 / 24
         if verbose > 0 and dtd > 2:
-            logger.warn(
+            logger.warning(
                 'pair_airnowapi using mobile monitors more than 2 days old;'
                 + ' historic locations of mobile monitors via api are not'
                 + ' reliable.'

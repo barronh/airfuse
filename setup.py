@@ -36,6 +36,9 @@ setuptools.setup(
     install_requires=[
         "xarray>=2023.11.0", "pandas>=1.1.5", "numpy>=1.19.5", "scipy>=1.5.4",
         "netCDF4>=1.5.8", "pyproj>=2.6.1", "pyrsig",
-        "cfgrib", "eccodes==1.2.0", "ecmwflibs"
+        "cfgrib", "eccodes==1.2.0"
     ],
+    extras_require = {
+        "nws":  ["ecmwflibs"]
+    }
 )

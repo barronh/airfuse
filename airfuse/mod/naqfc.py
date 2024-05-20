@@ -261,7 +261,9 @@ def open_operational(
     proj = pyproj.Proj(pyproj.CRS.from_cf(pattrs))
     nws_cf227_proj4 = proj.srs.replace('units=m', 'units=km')
     # 0 and 18Z have only 6h... should these be used at all?
-    for sh in [18, 12, 6, 0]:
+    # 0 and 18Z were discontinued https://www.weather.gov/media/notification/
+    #     pdf_2023_24/pns24-14_aqm_v7_product_removal.pdf
+    for sh in [12, 6]:
         firsth = filedate + pd.to_timedelta(sh + 1, unit='h')
         lasth = filedate + pd.to_timedelta(
             {18: 6, 12: 72, 6: 72, 0: 6}[sh] + 1, unit='h'
@@ -275,13 +277,13 @@ def open_operational(
         if source == 'ncep':
             url = (
                 'https://ftp.ncep.noaa.gov/data/nccf/com/aqm/prod/'
-                + f'cs.{filedate:%Y%m%d}/'
+                + f'aqm.{filedate:%Y%m%d}/{sh:02d}/'
                 + f'aqm.t{sh:02d}z.{ncepcode}.227.grib2'
             )
         elif source == 'nomads':
             url = (
                 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/aqm/prod/'
-                + f'cs.{filedate:%Y%m%d}/'
+                + f'aqm.{filedate:%Y%m%d}/{sh:02d}/'
                 + f'aqm.t{sh:02d}z.{ncepcode}.227.grib2'
             )
         elif source == 'nws':
