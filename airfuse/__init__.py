@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.7.3'
+__version__ = '0.7.4'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -42,6 +42,7 @@ changelog = '''
            www.ncei.noaa.gov/thredds/catalog/model-ndgd-file/catalog.html
 * 0.7.2: * Changed default NOAA server from ncep to nomads.
 * 0.7.3: * Added initialization hour to ncep and nomads file structure.
+* 0.7.4: * Fixed install_requires
 '''
 
 __doc__ = '''
