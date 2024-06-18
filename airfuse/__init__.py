@@ -42,7 +42,7 @@ changelog = '''
            www.ncei.noaa.gov/thredds/catalog/model-ndgd-file/catalog.html
 * 0.7.2: * Changed default NOAA server from ncep to nomads.
 * 0.7.3: * Added initialization hour to ncep and nomads file structure.
-* 0.7.4: * Fixed install_requires
+* 0.7.4: * Fixed install_requires and requirements.txt
 '''
 
 __doc__ = '''
