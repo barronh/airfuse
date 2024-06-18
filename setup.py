@@ -34,9 +34,9 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        "xarray>=2023.11.0", "pandas>=1.1.5", "numpy>=1.19.5", "scipy>=1.5.4",
+        "xarray>=2023.11.0", "pandas>=1.1.5", "numpy>=1.19.5,<2", "scipy>=1.5.4",
         "netCDF4>=1.5.8", "pyproj>=2.6.1", "pyrsig",
-        "nna_methods @ git+https://github.com/barronh/nna_methods.git",
+        "nna_methods @ git+https://github.com/barronh/nna_methods.git@v0.5.0",
         "cfgrib", "eccodes>=1.2", "ecmwflibs",
     ],
 )
