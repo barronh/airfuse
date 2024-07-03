@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.7.5'
+__version__ = '0.7.6'
 changelog = '''
 * 0.1.0: functioning
 * 0.2.0: checks for invalid aVNA_AN and aVNA_PA and updates weights accordingly
@@ -45,6 +45,8 @@ changelog = '''
 * 0.7.4: * Fixed install_requires
 * 0.7.5: * Updating requirements.txt and install_requires to prevent numpy 2
            and fixing new matplotlib registry issue.
+* 0.7.6: * Allow failback when NCEI is missing both file for a particular
+           pollutant day (e.g. LZQZ99_KWBP 2024-06-24)
 '''
 
 __doc__ = '''

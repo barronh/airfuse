@@ -144,7 +144,8 @@ def open_mostrecent(
     """
     import xarray as xr
     import pandas as pd
-    edate = pd.to_datetime(bdate) + pd.to_timedelta('1h')
+    bdate = pd.to_datetime(bdate)
+    edate = bdate + pd.to_timedelta('1h')
     if filedate is None:
         filedate = bdate
     if key.startswith('LOPZ99'):
@@ -156,7 +157,9 @@ def open_mostrecent(
         key = newkey
     paths = getpaths(filedate, service='dodsC', key=key)
     if len(paths) == 0:
-        raise IOError('Could not find relevant file.')
+        # allow failback, but warn when a day in the NCEI archive
+        # is missing.
+        logger.info(f'Could not find relevant file for {filedate:%FT%H}Z.')
     for path in paths[::-1]:
         try:
             naqfcf = xr.open_dataset(path)
@@ -317,7 +320,7 @@ def open_operational(
                 f['LambertConformal_Projection'] = lcc
                 renames = dict(time='reftime', step='time')
                 renames[oldkey] = varkey
-                outf = f.drop('valid_time').rename(**renames)
+                outf = f.drop_vars('valid_time').rename(**renames)
                 outf.coords['time_bounds'] = xr.DataArray(
                     np.append(f['time'].values, f['valid_time'].values),
                     name='time_bounds', dims=('time_bounds',)
@@ -417,7 +420,8 @@ def get_mostrecent(
             opts = dict(key=key, failback=failback, verbose=verbose)
             # Cascaded fail system: first nomads, then ncep, then nws.
             # If any succeeds, the rest are not tried.
-            for src in ['nomads', 'ncep', 'nws']:
+            servers = ['nomads', 'ncep', 'nws']
+            for src in servers:
                 try:
                     naqfcf = open_operational(bdate, source=src, **opts)
                     break
