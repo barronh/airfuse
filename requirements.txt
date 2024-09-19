@@ -8,4 +8,4 @@ pyrsig
 cfgrib
 eccodes==1.2.0
 ecmwflibs
-git+https://github.com/barronh/nna_methods.git@v0.5.0
+git+https://github.com/barronh/nna_methods.git@v0.6.0
