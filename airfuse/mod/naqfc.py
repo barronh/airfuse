@@ -321,6 +321,8 @@ def open_operational(
                 renames = dict(time='reftime', step='time')
                 renames[oldkey] = varkey
                 outf = f.drop_vars('valid_time').rename(**renames)
+                if 'mask' in gridds.data_vars:
+                    outf = outf.where(gridds['mask'] > 0)
                 outf.coords['time_bounds'] = xr.DataArray(
                     np.append(f['time'].values, f['valid_time'].values),
                     name='time_bounds', dims=('time_bounds',)
@@ -432,6 +434,8 @@ def get_mostrecent(
         else:
             if verbose > 0:
                 logger.info(f'Calling open_mostrecent {key}')
+            # consider adding a getgrid(key) and mask option for consistency
+            # with open_operational
             naqfcf = open_mostrecent(
                 bdate.replace(tzinfo=None), key=key, failback=failback
             )
