@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def pair_airnow(bdate, bbox, proj, var, spc, verbose=1):
+def pair_airnow(bdate, bbox, proj, var, spc, api_key=None, verbose=1):
     """
     Currently uses pair_airnowapi if within 2 days and pair_airnowaqobsfile
     otherwise.
@@ -26,6 +26,8 @@ def pair_airnow(bdate, bbox, proj, var, spc, verbose=1):
         Model variable with values on centers
     spc : str
         Name of the species to retrieve from AirNow via AirNowAPI
+    api_key : str
+        API key or path to file with api_key for airnow.
     verbose : int
         Level of verbosity
 
@@ -50,7 +52,7 @@ def pair_airnow(bdate, bbox, proj, var, spc, verbose=1):
     else:
         if verbose > 0:
             logger.info('pair_airnow using AirNow API')
-        return pair_airnowapi(bdate, bbox, proj, var, spc)
+        return pair_airnowapi(bdate, bbox, proj, var, spc, api_key=api_key)
 
 
 def pair_aqs(bdate, bbox, proj, var, spc, verbose=1):
