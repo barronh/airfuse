@@ -1,14 +1,23 @@
 __all__ = ['applyfusion', 'get_fusions']
 
 
-def get_fusions(n=30):
+def get_fusions(v=30, i=10):
     """
     Get instances of default models
+
+    Arguments
+    ---------
+    v : int
+        minimum number of neighbors for voronoi
+    i : int
+        minimum number of neighbors for IDW
     """
     import nna_methods
     models = dict(
-        IDW=nna_methods.NNA(method='nearest', k=min(10, n), power=-5),
-        VNA=nna_methods.NNA(method='voronoi', k=min(30, n), power=-2),
+        # Consistent with AirNow implementation
+        IDW=nna_methods.NNA(method='nearest', k=i, power=-5),
+        # Power consistent with eVNA; k set to optimize speed.
+        VNA=nna_methods.NNA(method='voronoi', k=v, power=-2),
     )
     return models
 
@@ -16,7 +25,8 @@ def get_fusions(n=30):
 def applyfusion(
     mod, prefix, fitdf, tgtdf=None, loodf=None, xkey='x',
     ykey='y', obskey='obs_value', modkey='NAQFC', biaskey='BIAS',
-    ratiokey='RATIO', loo=True, cv=True, verbose=0, random_state=None
+    ratiokey='RATIO', loo=True, cv=True, verbose=0, random_state=None,
+    njobs=None
 ):
     """
     This is a convenience function. This assumes you are interpolating the
@@ -119,7 +129,7 @@ def applyfusion(
         tgtx = tgtdf[xkeys].values
         if verbose > 0:
             logging.info('Starting target prediction')
-        tgtz = mod.predict(tgtx)
+        tgtz = mod.predict(tgtx, njobs=njobs)
         for ykey, y in zip(ykeys, tgtz.T):
             tgtdf[f'{prefix}_{ykey}'] = y
         tgtdf[f'a{prefix}'] = tgtdf[modkey] - tgtdf[f'{prefix}_{biaskey}']
