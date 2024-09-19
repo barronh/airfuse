@@ -42,7 +42,8 @@ def get_mostrecent(
     fcast = 'https://opendap.nccs.nasa.gov/dods/gmao/geos-cf/fcast'
     froot = 'aqc_tavg_1hr_g1440x721_v1/aqc_tavg_1hr_g1440x721_v1'
     bdate = pd.to_datetime(bdate)
-    mdate = bdate + pd.to_timedelta('30min')
+    # geos-cf time is zone naive, but UTC
+    mdate = (bdate + pd.to_timedelta('30min')).tz_localize(None)
     if key == 'pm25':
         key = 'pm25_rh35_gcc'
 
