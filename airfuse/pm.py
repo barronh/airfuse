@@ -17,9 +17,41 @@ import pandas as pd
 
 def pmfuse(
     startdate, model, bbox=None, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, verbose=0, **kwds
+    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None, **kwds
 ):
+    """
+    Must accept all arguments from airfuse.parser.parse_args
 
+    Arguments
+    ---------
+    startdate : datelike
+        Beginning hour of prediction
+    model : str
+        Currently works with naqfc, geoscf, goes
+    bbox : list
+        wlon, slat, elon, nlat in decimal degrees east and north
+        lon >= -180 and lon <= 180
+        lat >= -90 and lat <= 90
+    cv_only : bool
+        Only perform the cross-validation
+    outdir : str or None
+        Directory for output (Defaults to %Y/%m/%d)
+    overwrite : bool
+        If True, overwrite existing outpus.
+    api_key : str or None
+        Key for airnow or purpleair
+    verbose : int
+        Degree of verbosity
+    njobs : int or None
+        Number of processes to run during the target prediction phase.
+    kwds : mappable
+        Other unknown keywords
+
+    Returns
+    -------
+    outpaths : dict
+        Dictionary of output paths
+    """
     date = pd.to_datetime(startdate)
     model = model.upper()
     obskey = 'pm25'
@@ -102,8 +134,19 @@ nearest obs.
     padf = pair_purpleair(date, bbox, proj, pm, obskey, api_key=api_key)
     logging.info(f'PurpleAir N={padf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'PurpleAir N={padf.shape[0]}'])
-
-    models = get_fusions()
+    ann = andf.shape[0]
+    pan = padf.shape[0]
+    minv = min([30, int(ann * .9), int(pan * .9)])
+    mini = min([10, int(ann * .9), int(pan * .9)])
+    if ann < 30:
+        logging.info(f'AirNow had only {ann} obs')
+    if pan < 30:
+        logging.info(f'PurpleAir had only {pan} obs')
+    if minv < 30:
+        logging.info(f'Only using nearest {minv} neighbors for voronoi')
+    if mini < 10:
+        logging.info(f'Only using nearest {mini} neighbors for IDW')
+    models = get_fusions(v=minv, i=mini)
 
     if cv_only:
         tgtdf = None
@@ -117,7 +160,7 @@ nearest obs.
         t0 = time.time()
         applyfusion(
             mod, f'{mkey}_AN', andf, tgtdf=tgtdf, obskey=obskey,
-            modkey=pm.name, verbose=9
+            modkey=pm.name, verbose=9, njobs=njobs
         )
         t1 = time.time()
         logging.info(f'AN {mkey} {t1 - t0:.0f}s')
@@ -128,7 +171,7 @@ nearest obs.
         t0 = time.time()
         applyfusion(
             mod, f'{mkey}_PA', padf, tgtdf=tgtdf, loodf=andf,
-            obskey=obskey, modkey=pm.name, verbose=9
+            obskey=obskey, modkey=pm.name, verbose=9, njobs=njobs
         )
         t1 = time.time()
         logging.info(f'PA {mkey} finish: {t1 - t0:.0f}s')
@@ -185,9 +228,13 @@ nearest obs.
                 'author': 'Barron H. Henderson',
                 'institution': 'US Environmental Protection Agency',
                 'description': fdesc, 'crs_proj4': proj.srs,
-                'reftime': metarow['reftime'].strftime('%Y-%m-%dT%H:%M:%S%z'),
-                'sigma': metarow['sigma']
             }
+            if 'reftime' in metarow:
+                fileattrs['reftime'] = (
+                    metarow['reftime'].strftime('%Y-%m-%dT%H:%M:%S%z')
+                )
+            if 'sigma' in metarow:
+                fileattrs['sigma'] = metarow['sigma']
             tgtds = df2nc(tgtdf, varattrs, fileattrs)
             tgtds.to_netcdf(fusepath)
         else:

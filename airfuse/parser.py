@@ -32,6 +32,10 @@ def get_parser():
         help='Path for outputs; defaults to %%Y/%%m/%%d'
     )
     parser.add_argument(
+        '-j', '--njobs', default=None, type=int,
+        help='Number of jobs (i.e., threads or cores) to use in prediction'
+    )
+    parser.add_argument(
         '-m', '--model', choices={'naqfc', 'geoscf', 'goes'}, default='naqfc',
         help='Model to use as mediating layer (default naqfc)'
     )

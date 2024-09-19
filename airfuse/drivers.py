@@ -15,19 +15,40 @@ import warnings
 
 def fuse(
     obssource, species, startdate, model, bbox=None, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, verbose=0, **kwds
+    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None, **kwds
 ):
     """
+    Must accept all arguments from airfuse.parser.parse_args
+
     Arguments
     ---------
     obssource : str
+        Data source to use for observations (airnow, purpleair, aqs)
     species : str
+        Conceptually supports anything in airnow/aqs, but has been tested with
+        o3 and pm25
     startdate : datelike
+        Beginning hour of prediction
     model : str
+        Currently works with naqfc, geoscf, goes
     bbox : list
+        wlon, slat, elon, nlat in decimal degrees east and north
+        lon >= -180 and lon <= 180
+        lat >= -90 and lat <= 90
     cv_only : bool
+        Only perform the cross-validation
     outdir : str or None
+        Directory for output (Defaults to %Y/%m/%d)
     overwrite : bool
+        If True, overwrite existing outpus.
+    api_key : str or None
+        Key for airnow or purpleair
+    verbose : int
+        Degree of verbosity
+    njobs : int or None
+        Number of processes to run during the target prediction phase.
+    kwds : mappable
+        Other unknown keywords
 
     Returns
     -------
@@ -80,7 +101,7 @@ def fuse(
 
     obskey = {'o3': 'ozone', 'pm25': 'pm25'}[species]
     if obssource == 'airnow':
-        obsdf = pair_airnow(date, bbox, proj, modvar, obskey)
+        obsdf = pair_airnow(date, bbox, proj, modvar, obskey, api_key=api_key)
     elif obssource == 'aqs':
         obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
     elif obssource == 'purpleair':
@@ -113,8 +134,16 @@ use an additive bias correction using these interpolations.
 {obssource} N=: {obsdf.shape[0]}
 updated: {nowstr}
 """
-
-    models = get_fusions()
+    obsn = obsdf.shape[0]
+    minv = min([30, int(obsn * .9)])
+    mini = min([10, int(obsn * .9)])
+    if obsn < 30:
+        logging.info(f'Obs had only {obsn} obs')
+    if minv < 30:
+        logging.info(f'Only using nearest {minv} neighbors for voronoi')
+    if mini < 10:
+        logging.info(f'Only using nearest {mini} neighbors for IDW')
+    models = get_fusions(v=minv, i=mini)
 
     if cv_only:
         tgtdf = None
@@ -128,7 +157,7 @@ updated: {nowstr}
         t0 = time.time()
         applyfusion(
             mod, mkey, obsdf, tgtdf=tgtdf, obskey=obskey, modkey=modvar.name,
-            verbose=9
+            verbose=9, njobs=njobs
         )
         t1 = time.time()
         logging.info(f'{obssource} {mkey} finish: {t1 - t0:.0f}s')
