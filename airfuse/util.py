@@ -453,7 +453,22 @@ def df2nc(
     if 'crs_proj4' in fileattrs:
         proj = pyproj.Proj(fileattrs['crs_proj4'])
         cfattrs = proj.crs.to_cf()
+        # the parameters below are required for Panoply to work correctly.
         tgtds['crs'] = xr.DataArray(0, dims=(), attrs=cfattrs)
+        # Not sure why, but Panoply requires this attribute
+        tgtds['crs'].attrs['latitude_of_projection_origin'] = (
+            tgtds['crs'].attrs['standard_parallel']
+        )
+        # Projected coordinate for NAQFC is in km
+        tgtds.coords['x'].attrs.update(
+            units='km',
+            standard_name='projection_x_coordinate',
+        )
+        tgtds.coords['y'].attrs.update(
+            units='km',
+            standard_name='projection_y_coordinate',
+        )
+        tgtds.attrs['Conventions'] = 'CF-1.6'
     tgtds.attrs.setdefault('creation_date', now)
     if outpath is not None:
         tgtds.to_netcdf(outpath)

@@ -12,12 +12,14 @@ import os
 import logging
 from . import __version__
 import warnings
+import requests
 import pandas as pd
 
 
 def pmfuse(
     startdate, model, bbox=None, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None, **kwds
+    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
+    modvar=None, andf=None, padf=None, **kwds
 ):
     """
     Must accept all arguments from airfuse.parser.parse_args
@@ -44,6 +46,17 @@ def pmfuse(
         Degree of verbosity
     njobs : int or None
         Number of processes to run during the target prediction phase.
+    modvar : xarray.DataArray
+        Optional, used to bypass typicall model acquisition process.
+        Must have crs_proj4 and should be named NAQFC or GEOSCF.
+    andf : pandas.DataFrame
+        Optional, used to bypass typical AirNow acquisition process.
+        Must have pm25 column, x/y columns consistent with modvar, and a NAQFC
+        or GEOSCF column from modvar
+    padf : pandas.DataFrame
+        Optional, used to bypass typical AirNow acquisition process.
+        Must have pm25 column, x/y columns consistent with modvar, and a NAQFC
+        or GEOSCF column from modvar
     kwds : mappable
         Other unknown keywords
 
@@ -58,6 +71,8 @@ def pmfuse(
 
     vardescs = {
       'NAQFC': 'NOAA Forecast (NAQFC)',
+      'IDW_AN_DIST': 'Distance to AirNow [km]',
+      'IDW_PA_DIST': 'Distance to PurpleAir [km]',
       f'IDW_AN_{obskey}': f'NN weighted (n=10, d**-5) AirNow {obskey}',
       f'VNA_AN_{obskey}': f'VN weighted (n=nv, d**-2) AirNow {obskey}',
       'aIDW_AN': 'IDW of AirNow bias added to the NOAA NAQFC forecast',
@@ -114,24 +129,41 @@ nearest obs.
     logging.info(f'AirFuse {__version__}')
     logging.info(f'Output dir: {outdir}')
 
-    pm = get_model(date, key=obskey, bbox=bbox, model=model, verbose=verbose)
-    logging.info(f'{model}: {pm.description}')
-    fdesc = '\n'.join([fdesc, f'{model}: {pm.description}'])
+    if modvar is None:
+        modvar = get_model(
+            date, key=obskey, bbox=bbox, model=model, verbose=verbose
+        )
+    logging.info(f'{model}: {modvar.description}')
+    fdesc = '\n'.join([fdesc, f'{model}: {modvar.description}'])
     # When merging fused surfaces, PurpleAir is treated as never being closer
     # than half the diagonal distance. Thsi ensures that AirNow will be the
     # preferred estimate within a grid cell if it exists. This is particularly
     # reasonable given that the PA coordinates are averaged
-    dx = np.diff(pm.x).mean()
-    dy = np.diff(pm.y).mean()
+    dx = np.diff(modvar.x).mean()
+    dy = np.diff(modvar.y).mean()
     pamindist = ((dx**2 + dy**2)**.5) / 2
 
-    proj = pyproj.Proj(pm.attrs['crs_proj4'], preserve_units=True)
+    proj = pyproj.Proj(modvar.attrs['crs_proj4'], preserve_units=True)
     logging.info(proj.srs)
 
-    andf = pair_airnow(date, bbox, proj, pm, obskey)
+    if andf is None:
+        andf = pair_airnow(date, bbox, proj, modvar, obskey)
     logging.info(f'AirNow N={andf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'AirNow N={andf.shape[0]}'])
-    padf = pair_purpleair(date, bbox, proj, pm, obskey, api_key=api_key)
+
+    if (pd.to_datetime('now', utc=True) - date).total_seconds() > 86400:
+        exclude_stations = None
+    else:
+        exclude_stations = requests.get(paexcludeurl, stream=True).json()
+        logging.info(
+            'Using FASM PurpleAir Exclusions: '
+            + ''.join(exclude_stations))
+
+    if padf is None:
+        padf = pair_purpleair(
+            date, bbox, proj, modvar, obskey, api_key=api_key,
+            exclude_stations=exclude_stations
+        )
     logging.info(f'PurpleAir N={padf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'PurpleAir N={padf.shape[0]}'])
     ann = andf.shape[0]
@@ -151,8 +183,8 @@ nearest obs.
     if cv_only:
         tgtdf = None
     else:
-        outdf = pm.to_dataframe().reset_index()
-        tgtdf = outdf.query(f'{pm.name} == {pm.name}').copy()
+        outdf = modvar.to_dataframe().reset_index()
+        tgtdf = outdf.query(f'{modvar.name} == {modvar.name}').copy()
 
     # Apply all models to AirNow observations
     for mkey, mod in models.items():
@@ -160,7 +192,7 @@ nearest obs.
         t0 = time.time()
         applyfusion(
             mod, f'{mkey}_AN', andf, tgtdf=tgtdf, obskey=obskey,
-            modkey=pm.name, verbose=9, njobs=njobs
+            modkey=modvar.name, verbose=9, njobs=njobs
         )
         t1 = time.time()
         logging.info(f'AN {mkey} {t1 - t0:.0f}s')
@@ -171,7 +203,7 @@ nearest obs.
         t0 = time.time()
         applyfusion(
             mod, f'{mkey}_PA', padf, tgtdf=tgtdf, loodf=andf,
-            obskey=obskey, modkey=pm.name, verbose=9, njobs=njobs
+            obskey=obskey, modkey=modvar.name, verbose=9, njobs=njobs
         )
         t1 = time.time()
         logging.info(f'PA {mkey} finish: {t1 - t0:.0f}s')
@@ -199,9 +231,6 @@ nearest obs.
         andf, distkeys, valkeys, modkey=model, ykey='FUSED_aIDW', power=-2,
         add=True, LOO_aIDW_PA=0.25
     )
-    # Save results to disk as CSV files
-    andf.to_csv(ancvpath, index=False)
-    padf.to_csv(pacvpath, index=False)
 
     if not cv_only:
         # Force PA downweighting in same cell and neighboring cell.
@@ -236,10 +265,18 @@ nearest obs.
             if 'sigma' in metarow:
                 fileattrs['sigma'] = metarow['sigma']
             tgtds = df2nc(tgtdf, varattrs, fileattrs)
+            andf['GRIDDED_FUSED_aVNA'] = tgtds['FUSED_aVNA'].sel(
+                x=andf['x'].to_xarray(), y=andf['y'].to_xarray(),
+                method='nearest'
+            ).values.squeeze()
             tgtds.to_netcdf(fusepath)
         else:
             # Defualt to csv
             tgtdf.to_csv(fusepath, index=False)
+
+    # Save results to disk as CSV files
+    andf.to_csv(ancvpath, index=False)
+    padf.to_csv(pacvpath, index=False)
 
     logging.info('Successful Completion')
     if cv_only:

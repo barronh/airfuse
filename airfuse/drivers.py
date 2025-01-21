@@ -15,7 +15,8 @@ import warnings
 
 def fuse(
     obssource, species, startdate, model, bbox=None, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None, **kwds
+    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
+    modvar=None, obsdf=None, **kwds
 ):
     """
     Must accept all arguments from airfuse.parser.parse_args
@@ -47,6 +48,14 @@ def fuse(
         Degree of verbosity
     njobs : int or None
         Number of processes to run during the target prediction phase.
+    modvar : xarray.DataArray
+        Optional, used to bypass typicall model acquisition process.
+        Must have crs_proj4 and should be named NAQFC or GEOSCF.
+    obsdf : pandas.DataFrame
+        Optional, used to bypass typical observations acquisition process.
+        Must have species column, x/y columns consistent with modvar, and a
+        NAQFC or GEOSCF column from modvar
+
     kwds : mappable
         Other unknown keywords
 
@@ -100,14 +109,17 @@ def fuse(
     logging.info(proj.srs)
 
     obskey = {'o3': 'ozone', 'pm25': 'pm25'}[species]
-    if obssource == 'airnow':
-        obsdf = pair_airnow(date, bbox, proj, modvar, obskey, api_key=api_key)
-    elif obssource == 'aqs':
-        obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
-    elif obssource == 'purpleair':
-        obsdf = pair_purpleair(
-            date, bbox, proj, modvar, obskey, api_key=api_key
-        )
+    if obsdf is None:
+        if obssource == 'airnow':
+            obsdf = pair_airnow(
+                date, bbox, proj, modvar, obskey, api_key=api_key
+            )
+        elif obssource == 'aqs':
+            obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
+        elif obssource == 'purpleair':
+            obsdf = pair_purpleair(
+                date, bbox, proj, modvar, obskey, api_key=api_key
+            )
     logging.info(f'{obssource} N={obsdf.shape[0]}')
     vardescs = {
       'NAQFC': 'NOAA Forecast (NAQFC)',
@@ -162,8 +174,6 @@ updated: {nowstr}
         t1 = time.time()
         logging.info(f'{obssource} {mkey} finish: {t1 - t0:.0f}s')
 
-    # Save results to disk
-    obsdf.to_csv(cvpath, index=False)
     if not cv_only:
         # Save final results to disk
         if fusepath.endswith('.nc'):
@@ -173,15 +183,29 @@ updated: {nowstr}
                 'author': 'Barron H. Henderson',
                 'institution': 'US Environmental Protection Agency',
                 'description': fdesc, 'crs_proj4': proj.srs,
-                'reftime': metarow['reftime'].strftime('%Y-%m-%dT%H:%M:%S%z'),
-                'sigma': metarow['sigma'],
                 'updated': nowstr
             }
+            if 'reftime' in metarow:
+                fileattrs['reftime'] = (
+                    metarow['reftime'].strftime('%Y-%m-%dT%H:%M:%S%z')
+                )
+            if 'sigma' in metarow:
+                fileattrs['sigma'] = metarow['sigma']
+
             tgtds = df2nc(tgtdf, varattrs, fileattrs)
+            obsdf['GRIDDED_aVNA'] = tgtds['aVNA'].sel(
+                x=obsdf['x'].to_xarray(),
+                y=obsdf['y'].to_xarray(),
+                method='nearest'
+            ).values.squeeze()
             tgtds.to_netcdf(fusepath)
         else:
             # Defualt to csv
             tgtdf.to_csv(fusepath, index=False)
+
+    # Save results to disk
+    obsdf.to_csv(cvpath, index=False)
+
     logging.info('Successful completion')
     if cv_only:
         outpaths.pop('outpath', 0)

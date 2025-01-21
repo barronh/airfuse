@@ -1,5 +1,8 @@
 Notable updates in reverse chronological order:
-
+* 0.8.1: * Defaulting to only regulatory observations. The mobile monitors
+           have uncertain locations and measurements. This represents a
+           reversal of the update in 0.7.0. We need a systematic evaluation
+           before making this the default.
 * 0.8.0: * Allow for an optional "mask" variable in NAQFC coordinate files.
          * Add -j --njobs option for prediction (requires nna_methods 0.6.0)
 * 0.7.6: * Allow failback when NCEI is missing both file for a particular
