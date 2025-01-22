@@ -1,4 +1,7 @@
 Notable updates in reverse chronological order:
+* 0.8.2: * Adding AWS S3 option for NAQFC.
+         * Adding more testing allowing for flaky tests (e.g., servers down?)
+         * Changing default GOES to DNN.
 * 0.8.1: * Defaulting to only regulatory observations. The mobile monitors
            have uncertain locations and measurements. This represents a
            reversal of the update in 0.7.0. We need a systematic evaluation

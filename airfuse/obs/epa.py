@@ -92,7 +92,7 @@ def pair_aqs(bdate, bbox, proj, var, spc, verbose=1):
 
 
 def pair_airnowapi(
-    bdate, bbox, proj, var, spc, api_key=None, montype=2, verbose=1
+    bdate, bbox, proj, var, spc, api_key=None, montype=0, verbose=1
 ):
     """
     Get obs from AirNowAPI and pair with model variable (var)
@@ -114,7 +114,7 @@ def pair_airnowapi(
         the API key in its contents.
         If None, the API key must exist in ~/.airnowkey
     montype : int
-        0 - regulatory monitors
+        0 - regulatory monitors (default)
         1 - mobile monitors
         2 - both
     verbose : int
@@ -359,16 +359,23 @@ def pair_aqsapi(bdate, bbox, proj, var, spc, api_user=None, api_key=None):
     import pandas as pd
     import os
     import numpy as np
-    from .util import read_netrc
+    from ..util import read_netrc
 
     if api_key is None:
         keypath = os.path.expanduser('~/.aqskey')
-        if os.path.exists(api_key):
+        netrcpath = os.path.expanduser('~/.netrc')
+        netrcwinpath = os.path.expanduser('~/_netrc')
+        if os.path.exists(keypath):
             api_key = keypath
+        elif os.path.exists(netrcpath):
+            api_key = netrcpath
+        elif os.path.exists(netrcwinpath):
+            api_key = netrcwinpath
         else:
             raise KeyError(
-                'api_key must either be provided as a .netrc'
-                + f' style file at {api_key}'
+                'api_key must either be provided as a .netrc style file at'
+                + f' {api_key} or ~/.netrc or ~/_netrc with user and password'
+                + ' for aqs.epa.gov'
             )
 
     api_user, dummy, api_key = read_netrc(api_key, 'aqs.epa.gov')
@@ -380,10 +387,17 @@ def pair_aqsapi(bdate, bbox, proj, var, spc, api_user=None, api_key=None):
             'https://aqs.epa.gov/data/api/sampleData/byBox'
             + f'?email={api_user}&key={api_key}&'
             + f'&param={param}&bdate={bdate:%Y%m%d}&edate={bdate:%Y%m%d}'
-            + '&minlat={}&maxlat={}&minlon={}&maxlon={}'.format(*bbox)
+            + '&minlat={1}&maxlat={3}&minlon={0}&maxlon={2}'.format(*bbox)
         )
-        df = pd.DataFrame.from_records(r.json()['Data'])
+        r.raise_for_status()
+        jdata = r.json()
+        defhead = [{'status': 'failed', 'error': 'no header'}]
+        header = jdata.get('Header', defhead)[0]
+        if header.get('status', 'failed').lower() == 'failed':
+            raise IOError(header['error'])
+        df = pd.DataFrame.from_records(jdata['Data'])
         dfs.append(df)
+
     df = pd.concat(dfs, ignore_index=True)
     df = df.replace(-999., np.nan)
     df['x'], df['y'] = proj(df['longitude'].values, df['latitude'].values)

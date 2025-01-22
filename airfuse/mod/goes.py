@@ -71,7 +71,8 @@ gw_y = gwf_y[300:1500]
 
 
 def get_goesgwr(
-    bdate, key='pm25', varkey='pm25gwr_ge', bbox=None, path=None, verbose=0
+    bdate, key='pm25', varkey='pm25dnn_ge', bbox=None, path=None, verbose=0,
+    version='1.4.0'
 ):
     """
     Aquire GOES data as a model (i.e., not as an observations).
@@ -107,11 +108,16 @@ def get_goesgwr(
     server = 'www.star.nesdis.noaa.gov'
     urlroot = f'https://{server}/pub/smcd/hzhang/GOES/GOES-16/NRT/CONUS'
     if 'dnn' in varkey:
-        filename = f'{bdate:pm25dnn/%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
-        localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
+        ddir = 'pm25dnn'
+        if version is not None:
+            vsfx = '_dnn_v{0}_{1}'.format(*version.split('.'))
+        else:
+            vsfx = '_dnn'
     else:
-        filename = f'{bdate:pm25gwr/%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H.nc}'
-        localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H.nc}'
+        vsfx = ''
+        ddir = 'pm25gwr'
+    filename = f'{ddir}/{bdate:%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H}{vsfx}.nc'
+    localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H}{vsfx}.nc'
     # filename = f'{bdate:pm25dnn/%Y%m%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
     # localpath = f'{bdate:%Y/%m/%d/pm25_gwr_aod_exp50_%Y%m%d%H_dnn.nc}'
 
@@ -141,7 +147,7 @@ def open_goes(path):
     path : str
         Path to a pm25gwr or pm25dnn file.
         * GWR file must have pm25sat_ge and pm25sat_gw
-        * DNN file must have pm25sat_com and pm25gwr_dnn_com
+        * DNN file must have pm25sat_com and pm25gwr_dnn_com_ensemble
 
     Returns
     -------
@@ -160,6 +166,9 @@ def open_goes(path):
         # Then, buffering the dimensions so that it is the same lengths
         edim = ('ydim_ge', 'xdim_ge')
         wdim = ('ydim_gw', 'xdim_gw')
+        dnnkey = 'pm25gwr_dnn_com'  # old file
+        if dnnkey not in srcf:
+            dnnkey = 'pm25gwr_dnn_com_ensemble'  # new file
 
         # Convenience function to shorten next few lines
         da = xr.DataArray
@@ -167,9 +176,9 @@ def open_goes(path):
         sw = (slice(None, 1200), slice(None, 1254))
         datavars = dict(
             pm25gwr_ge=da(srcf['pm25sat_com'][se].values, dims=edim),
-            pm25dnn_ge=da(srcf['pm25gwr_dnn_com'][se].values, dims=edim),
+            pm25dnn_ge=da(srcf[dnnkey][se].values, dims=edim),
             pm25gwr_gw=da(srcf['pm25sat_com'][sw].values, dims=wdim),
-            pm25dnn_gw=da(srcf['pm25gwr_dnn_com'][sw].values, dims=wdim),
+            pm25dnn_gw=da(srcf[dnnkey][sw].values, dims=wdim),
         )
         coords = dict(
             xdim_ge=np.arange(2133), xdim_gw=np.arange(0, 1254),

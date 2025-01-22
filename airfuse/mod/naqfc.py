@@ -206,11 +206,13 @@ def open_operational(
     verbose : int
         Level of verbosity.
     source : str
-        Source either 'nws', 'ncep', or 'nomads' and only applies when
-        requesting a file from the last two days.
-        * 'nws' is the true operational site.
-        * 'ncep' provides more thorough file naming.
+        Source either 'nws', 'ncep', 'noaa-nws-naqfc-pds.s3', or 'nomads' and
+        only applies when requesting a file from the last two days.
+        * 'nws' is the true operational site. (last two days only)
+        * 'ncep' provides more thorough file naming. (last two days only)
         * 'nomads' is like 'ncep'
+        * 'noaa-nws-naqfc-pds.s3' access via s3 bucket (2020-01-01-present)
+          https://registry.opendata.aws/noaa-nws-naqfc-pds/
 
     Results
     -------
@@ -219,6 +221,9 @@ def open_operational(
         NetCDF file. In addition, it will have a crs_proj4 attrribute that
         describes the projection of the underlying file.
 
+    Notes
+    -----
+    The noaa-nws-naqfc-pds.s3 is a new archive that holds the whole history
     """
     import os
     import pandas as pd
@@ -289,6 +294,20 @@ def open_operational(
                 + f'aqm.{filedate:%Y%m%d}/{sh:02d}/'
                 + f'aqm.t{sh:02d}z.{ncepcode}.227.grib2'
             )
+        elif source == 'noaa-nws-naqfc-pds.s3':
+            s3root = 'https://noaa-nws-naqfc-pds.s3.amazonaws.com'
+            if filedate >= pd.to_datetime('2024-05-14T00Z'):
+                s3root = f'{s3root}/AQMv7'
+            elif filedate >= pd.to_datetime('2021-07-20T00Z'):
+                s3root = f'{s3root}/AQMv6'
+            elif filedate >= pd.to_datetime('2020-01-01T00Z'):
+                s3root = f'{s3root}/AQMv5'
+            else:
+                raise KeyError(f'No {filedate}; AWS 2020-01-01 to present')
+            url = (
+                f'{s3root}/CS/{filedate:%Y%m%d}/{sh:02d}/'
+                + f'aqm.t{sh:02d}z.{ncepcode}.{filedate:%Y%m%d}.227.grib2'
+            )
         elif source == 'nws':
             url = (
                 'https://tgftp.nws.noaa.gov/SL.us008001/ST.opnl/DF.gr2/'
@@ -306,7 +325,6 @@ def open_operational(
                 if verbose > 0:
                     logger.info(f'Code {r.status_code} {url}')
                 continue
-
             # Windows requires delete=False to open the file a second time
             with tempfile.NamedTemporaryFile(delete=False) as tf:
                 tf.write(r.content)
@@ -340,7 +358,8 @@ def open_operational(
                 )
                 outf.attrs['file_url'] = url
                 return outf
-        except requests.models.HTTPError:
+        except requests.models.HTTPError as e:
+            print(str(e))
             continue
         except KeyError:
             # When 00 or 18Z are run, they only have 6 hours of data, which may
@@ -416,24 +435,26 @@ def get_mostrecent(
         ds = dt.total_seconds()
         # Start date must be today (-0day) or yesterday (-1day)
         # if the result is older than -1day, use NCEI
+        opts = dict(key=key, failback=failback, verbose=verbose)
         if ds < (1.5 * 24 * 3600):
-            if verbose > 0:
-                logger.info(f'Calling open_operational {key}')
-            opts = dict(key=key, failback=failback, verbose=verbose)
-            # Cascaded fail system: first nomads, then ncep, then nws.
-            # If any succeeds, the rest are not tried.
-            servers = ['nomads', 'ncep', 'nws']
-            for src in servers:
-                try:
-                    naqfcf = open_operational(bdate, source=src, **opts)
-                    break
-                except Exception as e:
-                    logger.info(f'{src} failed: {str(e)}')
-            else:
-                raise IOError('nomads, ncep, and nws all failed.')
+            # put s3 last since it may incur NOAA a cost.
+            servers = ['nomads', 'ncep', 'nws', 'noaa-nws-naqfc-pds.s3']
         else:
+            # only s3 has a historical archive
+            servers = ['noaa-nws-naqfc-pds.s3']
+        # Cascaded fail system: first nomads, then ncep, then s3, then nws.
+        # If any succeeds, the rest are not tried.
+        for src in servers:
             if verbose > 0:
-                logger.info(f'Calling open_mostrecent {key}')
+                logger.info(f'Calling open_operational {key} and {src}')
+            try:
+                naqfcf = open_operational(bdate, source=src, **opts)
+                break
+            except Exception as e:
+                logger.info(f'{src} failed: {str(e)}')
+        else:
+            logger.info(f'open_operational with {servers} all failed.')
+            logger.info(f'Calling open_mostrecent {key} (NCEI)')
             # consider adding a getgrid(key) and mask option for consistency
             # with open_operational
             naqfcf = open_mostrecent(

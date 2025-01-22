@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def pair_goes(bdate, bbox, proj, var, spc, verbose=1, goeskey='both'):
+def pair_goes(bdate, bbox, proj, var, spc, verbose=1, goeskey='bothdnn'):
     """
     Currently uses pair_airnowapi if within 2 days and pair_airnowaqobsfile
     otherwise.
@@ -21,7 +21,8 @@ def pair_goes(bdate, bbox, proj, var, spc, verbose=1, goeskey='both'):
     spc : str
         Name of the species to retrieve from AirNow via AirNowAPI
     goeskey : str
-        Must be either pm25gwr_ge or pm25gwr_gw or both
+        Must be either pm25gwr_ge or pm25gwr_gw or both or
+        pm25dnn_ge or pm25dnn_gw or bothdnn
     Returns
     -------
     andf : pandas.DataFrame

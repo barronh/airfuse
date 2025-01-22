@@ -1,7 +1,9 @@
 __all__ = ['pair_purpleair']
 
 
-def pair_purpleair(bdate, bbox, proj, var, spc, api_key=None):
+def pair_purpleair(
+    bdate, bbox, proj, var, spc, api_key=None, exclude_stations=None
+):
     """
     Arguments
     ---------
@@ -19,6 +21,8 @@ def pair_purpleair(bdate, bbox, proj, var, spc, api_key=None):
         If a str, it must either be the API key or a path to a file with only
         the API key in its contents.
         If None, the API key must exist in ~/.purpleairkey
+    exclude_stations : None or list
+        List of stations to exclude.
 
     Returns
     -------
@@ -57,14 +61,24 @@ def pair_purpleair(bdate, bbox, proj, var, spc, api_key=None):
         unit_keys=False, parse_dates=True
     ).rename(columns=dict(pm25_corrected_hourly=spc))
 
+    # Identify PurpleAir records to exclude
+    # missing value or unreasonably high value
+    exclude = padf[spc].isnull() | (padf[spc] >= 1000)
+    # Exclude specific stations
+    if exclude_stations is not None:
+        # Ensure type consistency
+        exstrs = [str(i) for i in exclude_stations]
+        exclude = exclude | padf.STATION.astype(str).isin(exstrs)
+
     # A much more complex analysis of error effectively only excludes
     # values over 1000. For simplicity, here we exclude measurements
     # greater than or equal too 1000 micrograms/m3.
-    padf = padf.loc[~padf[spc].isnull()].query(f'{spc} < 1000').copy()
+    padf = padf.loc[~exclude].copy()
 
     padf['x'], padf['y'] = proj(
         padf['LONGITUDE'].values, padf['LATITUDE'].values
     )
+    # add a PurpleAir removal process
 
     # Calculate PA values at 1/2 sized grid boxes (2.5km)
     hcell = 5.079 / 4

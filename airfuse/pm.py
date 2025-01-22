@@ -153,11 +153,20 @@ nearest obs.
 
     if (pd.to_datetime('now', utc=True) - date).total_seconds() > 86400:
         exclude_stations = None
-    else:
-        exclude_stations = requests.get(paexcludeurl, stream=True).json()
+    elif exclude_stations is True:
+        paexcludeurl = (
+            'https://airfire-data-exports.s3.us-west-2.amazonaws.com/elwood/'
+            + 'exclusion_lists/elwood_exclusion.json'
+        )
+        fasm_exclude = requests.get(paexcludeurl, stream=True).json()
+        exclude_stations = []
+        for rec in fasm_exclude:
+            if pd.to_datetime(rec['added']) <= date:
+                exclude_stations.append(rec['unit_id'])
         logging.info(
             'Using FASM PurpleAir Exclusions: '
-            + ''.join(exclude_stations))
+            + ''.join(exclude_stations)
+        )
 
     if padf is None:
         padf = pair_purpleair(

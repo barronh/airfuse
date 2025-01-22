@@ -31,7 +31,7 @@ def test_pmairnow():
     assert len(outpaths) > 0
 
 
-@pytest.mark.skip('PurpleAir requires API key')
+@pytest.mark.xfail(strict=False, reason='PurpleAir requires API key')
 def test_pmpurpleair():
     outpaths = fuse(
         'purpleair', 'pm25', olddate, 'naqfc',
@@ -59,7 +59,7 @@ def test_ozonetiny():
     assert len(outpaths) > 0
 
 
-@pytest.mark.skip('GEOS-CF OpenDAP unreliable')
+@pytest.mark.xfail(strict=False, reason='GEOS-CF OpenDAP unreliable')
 def test_ozonegeoscf():
     outpaths = fuse(
         'airnow', 'o3', olddate, 'geoscf',

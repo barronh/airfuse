@@ -1,3 +1,6 @@
+import pytest
+
+
 def get_dummyvar():
     """
     Produce a dummy variable that mimics NAQFC
@@ -64,6 +67,21 @@ def test_airnowapi():
     assert (obsdf2.shape[0] >= obsdf0.shape[0])
 
 
+def test_aqsapi():
+    from ..obs import epa
+    import pyproj
+    import pandas as pd
+
+    date = pd.to_datetime('2024-02-28T18Z')
+    obskey = 'ozone'
+    bbox = (-130, 20, -60, 55)
+
+    modvar = get_dummyvar()
+    proj = pyproj.Proj(modvar.crs_proj4)
+    obsdf0 = epa.pair_aqsapi(date, bbox, proj, modvar, obskey)
+    assert (obsdf0.shape[0] > 0)
+
+
 def test_airnowaqobsfile():
     from ..obs import epa
     import pyproj
@@ -91,4 +109,36 @@ def test_airnowhourlydatafile():
     modvar = get_dummyvar()
     proj = pyproj.Proj(modvar.crs_proj4)
     obsdf0 = epa.pair_airnowhourlydatafile(date, bbox, proj, modvar, obskey)
+    assert (obsdf0.shape[0] > 0)
+
+
+@pytest.mark.xfail(strict=False, reason='NOAA archive is not operational')
+def test_goesobs():
+    from ..obs import goes
+    import pyproj
+    import pandas as pd
+    recentdate = pd.to_datetime('now', utc=True).floor('1d')
+    # yesterday at noon central
+    goesdate = recentdate - pd.to_timedelta('6h')
+
+    modvar = get_dummyvar()
+    proj = pyproj.Proj(modvar.crs_proj4)
+    bbox = (-130, 20, -60, 55)
+    obsdf0 = goes.pair_goes(goesdate, bbox, proj, modvar, 'pm25')
+    assert (obsdf0.shape[0] > 0)
+
+
+@pytest.mark.xfail(strict=False, reason='Requires PurpleAir API key')
+def test_purpleair():
+    from ..obs import purpleair
+    import pyproj
+    import pandas as pd
+
+    date = pd.to_datetime('2024-02-28T18Z')
+    obskey = 'pm25'
+    bbox = (-130, 20, -60, 55)
+
+    modvar = get_dummyvar()
+    proj = pyproj.Proj(modvar.crs_proj4)
+    obsdf0 = purpleair.pair_purpleair(date, bbox, proj, modvar, obskey)
     assert (obsdf0.shape[0] > 0)
