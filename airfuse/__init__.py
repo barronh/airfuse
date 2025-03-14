@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.8.2'
+__version__ = '0.8.3'
 changelog = '''see CHANGELOG.md on github'''
 
 __doc__ = '''
