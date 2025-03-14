@@ -75,7 +75,11 @@ ant_1hpm_cmap.set_under(ant1hpmcolors[0])
 ant_1hpm_cmap.set_over(ant1hpmcolors[-1])
 ant_1hpm_norm = mc.BoundaryNorm(ant1hpmedges, len(ant1hpmedges) - 1)
 
-register(name='epa_aqi', cmap=epa_aqi_cmap)
-register(name='epa_aqi2', cmap=epa_aqi2_cmap)
-register(name='ant_1hpm', cmap=ant_1hpm_cmap)
-register(name='ant_1ho3', cmap=ant_1ho3_cmap)
+try:
+    register(name='epa_aqi', cmap=epa_aqi_cmap)
+    register(name='epa_aqi2', cmap=epa_aqi2_cmap)
+    register(name='ant_1hpm', cmap=ant_1hpm_cmap)
+    register(name='ant_1ho3', cmap=ant_1ho3_cmap)
+except Exception:
+    import warnings
+    warnings.warn('EPA Colormaps not registered')

@@ -41,6 +41,7 @@ def test_to_geopandas():
 
 @pytest.mark.xfail(strict=False, reason='Requires geopandas')
 def test_to_geojson():
+    import os
     import numpy as np
     import geopandas as gpd
     from ..util import to_geopandas, to_geojson

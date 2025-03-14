@@ -1,6 +1,6 @@
 __all__ = [
     'get_file', 'wget_file', 'request_file', 'ftp_file', 'read_netrc',
-    'mpestats', 'to_geopandas', 'to_geojson', 'df2nc'
+    'mpestats', 'to_geopandas', 'to_geojson', 'df2nc', 'to_webpng'
 ]
 
 
@@ -167,7 +167,7 @@ def mpestats(df, refkey='obs'):
           - fmb : 200 * mb / (mean(yref) + mean(y)) (as %)
           - fme : 200 * me / (mean(yref) + mean(y)) (as %)
           - ioa : 1 - sum((yhat - yref)**2) / sum(
-                        |yhat - mean(yref)| + |yref - mean(yref)|
+                        (|yhat - mean(yref)| + |yref - mean(yref)|)**2
                   )
 
     """
@@ -180,7 +180,7 @@ def mpestats(df, refkey='obs'):
     sdf = sdf[dks].copy()
     om = sdf.loc[refkey, 'mean']
     bias = df.subtract(df[refkey], axis=0)
-    minusom = df.subtract(om, axis=0)
+    minusom = df.subtract(om, axis=0).abs()
     ioaden = (
         minusom.add(minusom[refkey], axis=0)**2
     ).sum()
@@ -473,3 +473,107 @@ def df2nc(
     if outpath is not None:
         tgtds.to_netcdf(outpath)
     return tgtds
+
+
+def to_webpng(
+    ncpath, bbox=None, dx=2000., dy=2000., key='FUSED_aVNA', pngpath=None
+):
+    """
+    Convert AirFuse netcdf output to web mercator PNG for use with online
+    mapping tools.
+
+    Arguments
+    ---------
+    ncpath : str or xarray.Dataset
+        If str, open Dataset from path.
+        Otherwise, use ncpath as Dataset
+        Either must have key in data_vars and crs_proj4 in attrs
+    bbox : tuple
+        Approximate bounding box in WGS 84 lllon, lllat, urlon, urlat.
+        Actually upper right coordinates may slightly exceed. The true extent
+        is provided as a property of the png. default: -153, 10, -49, 62
+    dx : float
+        Web Mercator width in meters of pixel in output png
+    dy : float
+        Web Mercator height in meters of pixel in output png
+    key : str
+        Variable from ncpath to use (default: FUSED_aVNA)
+    pngpath : str
+        Path to save output as a png.
+
+    Returns
+    ---------
+    img : PIL.Image
+        Output image as a pillow Image object
+    """
+    from PIL import Image
+    from PIL.PngImagePlugin import PngInfo
+    import airfuse.style
+    import pyproj
+    import xarray as xr
+    import numpy as np
+
+    norm = airfuse.style.ant_1hpm_norm
+    cmap = airfuse.style.ant_1hpm_cmap
+    if isinstance(ncpath, str):
+        f = xr.open_dataset(ncpath)
+    else:
+        f = ncpath
+        ncpath = 'object provided'
+
+    proj = pyproj.Proj(f.crs_proj4)
+    wmproj = pyproj.Proj(3857)
+    if bbox is None:
+        bbox = [-153., 10., -49., 62.]  # consider defining bbox based on f
+
+    bbox = np.asarray(bbox)
+    wmx, wmy = wmproj(bbox[[0, 2]], bbox[[1, 3]])
+    dx = dy = 2000  # 2km resolution in Web Mercator Space
+    nx = int((wmx[1] - wmx[0]) // dx) + 1  # Ensure full coverage
+    ny = int((wmy[1] - wmy[0]) // dy) + 1
+    wmxb = wmx[0], wmx[0] + nx * 2000  # redefine bounds with extra cell
+    wmyb = wmy[0], wmy[0] + ny * 2000
+    # define centroids in Web Mercator Space
+    wmx = np.linspace(wmxb[0] + dx / 2, wmxb[1] - dx / 2, nx)
+    wmy = np.linspace(wmyb[0] + dy / 2, wmyb[1] - dy / 2, ny)
+    wmX, wmY = np.meshgrid(wmx, wmy)
+    # Convert Web Mercator centroids and bounds to lon/lat
+    LON, LAT = wmproj(wmX, wmY, inverse=True)
+    wmbbox = np.array([wmxb, wmyb]).T.ravel()
+    gbbox = np.array(wmproj(wmxb, wmyb, inverse=True)).T.ravel()
+    lX, lY = proj(LON, LAT)
+    lX = xr.DataArray(lX, dims=('lat', 'lon'))
+    lY = xr.DataArray(lY, dims=('lat', 'lon'))
+    # Interpolate to lon/lat centers
+    lZ = f[key].interp(x=lX, y=lY, method='linear')
+    a = cmap(norm(lZ[0, ::-1]), bytes=True)
+    a[:, :, 3] *= ~lZ[0, ::-1].isnull()
+    img = Image.fromarray(a, mode='RGBA')
+    img = img.convert("P", palette=Image.WEB, colors=256)
+    metadata = PngInfo()
+    metadata.add_text("title", f.title)
+    metadata.add_text("author", f.author)
+    metadata.add_text("institution", f.institution)
+    desc = (
+        f'{key} Bilinearly interpolated to EPSG:3857 from {ncpath}\n'
+        + f' that was created on {f.creation_date}. Original metadata'
+        + ' below:\n\n' + f.description
+    )
+    tstr = f.time.dt.strftime('%FT%H:%MZ').values[0]
+    gdesc = (
+        "crs (EPSG:3857) is the coordinate reference system and extent defines"
+        + " the bounding box (lllon, lllat, urlon, urlat) in WGS84 degrees."
+        + " wm_extent defines the bounding box in crs (i.e., Web Mercator)."
+    )
+    img.info.update({
+        "description": desc, "date_time": tstr,
+        "georeference_description": gdesc, "crs": 'ESPG:3857',
+        "extent": str(gbbox), "wm_extent": str(wmbbox)
+    })
+    for k, v in img.info.items():
+        metadata.add_text(k, v)
+
+    if pngpath is not None:
+        img.save(pngpath, pnginfo=metadata)
+
+    return img
