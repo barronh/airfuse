@@ -1,0 +1,1108 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* {box-sizing: border-box;}
+ul {list-style-type: none;}
+body {font-family: Verdana, sans-serif;}
+
+.month {
+  padding: 30px 25px;
+  width: 100%;
+  background: #1abc9c;
+  text-align: center;
+}
+
+.month ul {
+  margin: 0;
+  padding: 0;
+}
+
+.month ul li {
+  color: white;
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+.month .prev {
+  float: left;
+  padding-top: 0px;
+}
+
+.month .next {
+  float: right;
+  padding-top: 0px;
+}
+
+.weekdays {
+  margin: 0;
+  padding: 10px 0;
+  background-color: #ddd;
+}
+
+.weekdays li {
+  display: inline-block;
+  width: 13.6%;
+  color: #666;
+  text-align: center;
+}
+
+.days {
+  padding: 10px 0;
+  background: #eee;
+  margin: 0;
+}
+
+.days li {
+  list-style-type: none;
+  display: inline-block;
+  width: 13.6%;
+  text-align: center;
+  margin-bottom: 5px;
+  font-size:12px;
+  color: #777;
+}
+
+.days li .active {
+  padding: 5px;
+  background: #1abc9c;
+  color: white !important
+}
+
+/* Add media queries for smaller screens */
+@media screen and (max-width:720px) {
+  .weekdays li, .days li {width: 13.1%;}
+}
+
+@media screen and (max-width: 420px) {
+  .weekdays li, .days li {width: 12.5%;}
+  .days li .active {padding: 2px;}
+}
+
+@media screen and (max-width: 290px) {
+  .weekdays li, .days li {width: 12.2%;}
+}
+
+#outercontainer {
+  max-width: 1200px;
+  max-height: 800px;
+}
+#container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  padding-top: 40%; /* 16:9 Aspect Ratio */
+}
+
+#map {
+  position:  absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  text-align: center;
+  font-size: 20px;
+  color: white;
+}
+</style>
+<meta name="author" content="Barron H. Henderson" />
+<meta
+  name="description"
+  content="Prototype Geostationary Satellite and Fusion estimates of surface air quality." />
+  <script type="text/javascript">
+    let jdata = null;
+    async function getcaldata() {
+      if ( jdata == null ) {
+        iurl = 'https://airnow-navigator-layers.s3.us-east-2.amazonaws.com/index.json'
+        jdata = await fetch(iurl).then(function (response) {
+          return response.json();
+        });
+      }
+      return await jdata;
+    }
+    async function makecal() {
+      /*
+      Color a calendar based on data completeness using *.geojson.
+
+      fusion expects to have 24 geojsons
+      goes expects to have 13
+      When there are fewer than expected, color as yellow.
+      When there are less than half expected, color as red
+      Display the count beside the day of month.
+
+      Available files to check described by paterns below in jdata object
+      fusion/PM25/YYYY/MM/DD/HH/Fusion_PM25_NAQFC_yyyy-mm-ddTHHZ.geojson
+      fusion/PM25/YYYY/MM/DD/HH/Fusion_PM25_NAQFC_yyyy-mm-ddTHHZ.nc
+      fusion/PM25/YYYY/MM/DD/HH/Fusion_PM25_NAQFC_yyyy-mm-ddTHHZ_AirNow_CV.csv
+      fusion/O3/YYYY/MM/DD/HH/Fusion_O3_NAQFC_airnow_yyyy-mm-ddTHHZ.geojson
+      fusion/O3/YYYY/MM/DD/HH/Fusion_O3_NAQFC_airnow_yyyy-mm-ddTHHZ.nc
+      fusion/O3/YYYY/MM/DD/HH/Fusion_O3_NAQFC_airnow_yyyy-mm-ddTHHZ_CV.csv
+      goes/PM25/YYYY/MM/DD/HH/pm25_gwr_aod_exp50_yyyymmddHH_dnn.geojson
+      */
+
+      yyyymm = document.getElementById('yearmonth').value.split('-');
+      year = yyyymm[0];
+      month = yyyymm[1];
+      document.getElementById('month_title').innerHTML = `${year}-${month} by UTC date`;
+      source = document.getElementById("mapsource").value;
+      if (source == "AirFuse-PM25") {
+        src = 'fusion';
+        spc = 'PM25';
+      } else if (source == "AirFuse-O3") {
+        src = 'fusion';
+        spc = 'O3';
+      } else if (source == "GOES-PM25") {
+        src = 'goes';
+        spc = 'PM25';
+      }
+      dow = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+      // document.getElementById('caltitle').innerHTML = `${src}: ${spc}`;
+      for (i=1; i<=7; i++){
+        var d = new Date(year + '-' + month + '-' + i.toString());
+        document.getElementById('day_' + i.toString()).innerHTML = dow[d.getDay()];
+      };
+      await getcaldata();
+      now = new Date();
+      today = new Date(now.toISOString().split('T')[0]);
+      ldim = new Date(year, month, 0).getDate();
+      for (i=1; i<=31; i++){
+        if (i > ldim) {
+          document.getElementById('dom_' + i.toString()).innerHTML = '';
+        } else {
+          document.getElementById('dom_' + i.toString()).innerHTML = i;
+        }
+      }
+      for (i=1; i<=31; i++){
+        if ( src == "goes") {
+          nred = 6;
+          nyel = 13;
+        } else {
+          nred = 12;
+          nyel = 24;
+        }
+        if (i > ldim) {
+          document.getElementById('dom_' + i.toString()).innerHTML = '';
+        } else {
+          dd = i.toString().padStart(2, '0');
+          mitems = jdata[src][spc][year][month];
+          if (mitems == null ) {
+            const ditems = {
+              '00': 'none'
+            };
+          } else {
+            ditems = mitems[dd];
+          }
+          if (ditems == null) {
+            count = 0;//
+          } else {
+            count = 0;
+            for (const hh of Object.keys(ditems)) {
+                hitems = ditems[hh];
+                if (hitems == null) {
+                  //
+                } else {
+                  if (src == 'goes') {
+                    chkitem = `pm25_gwr_aod_exp50_${year}${month}${dd}${hh}_dnn.geojson`;
+                  } else if (spc == 'O3') {
+                    chkitem = `Fusion_${spc}_NAQFC_airnow_${year}-${month}-${dd}T${hh}Z.geojson`;
+                  } else if ( spc == 'PM25') {
+                    chkitem = `Fusion_${spc}_NAQFC_${year}-${month}-${dd}T${hh}Z.geojson`;
+                  };
+                  if (Object.keys(hitems).includes(chkitem)){
+                    count++;
+                  }
+                }
+            }
+          }
+          checkdate = new Date(`${year}-${month}-${dd}`);
+          if (today < checkdate) {
+            count = '-';
+            ctxt = '';
+          } else if ( today.toISOString() == checkdate.toISOString()){
+            ctxt = ' style="outline: solid black;"';
+          } else if (count < nred ) {
+            ctxt = ' style="background-color:#FF0000;"';
+          } else if (count < nyel ) {
+            ctxt = ' style="background-color:#FFFF00;"';
+          } else {
+            ctxt = '';
+          }
+          ctxt = '<div' + ctxt + '>' + i.toString() + ' (' + count + ')'+ '</div>';
+          document.getElementById('dom_' + i.toString()).innerHTML = ctxt;
+        }
+      }
+    };
+    function setcalmonths() {
+      /* Based on day now and a reference start date, add months to a
+      select element*/
+      start_date = '2024-03-01T00:00:00';
+      var enddate = new Date();
+      var select = document.getElementById('yearmonth');
+      var dates = new Set();
+      var mydate = new Date(start_date);
+      while ( mydate < enddate) {
+        yyyy = mydate.getFullYear().toString().padStart(4, '0');
+        mm = (mydate.getMonth() + 1).toString().padStart(2, '0');
+        yyyydmm = yyyy + '-' + mm;
+        dates.add(yyyydmm);
+        mydate.setDate(mydate.getDate() + 1);
+      }
+      for (yyyydmm of dates) {
+        var opt = document.createElement('option');
+        opt.value = yyyydmm;
+        opt.innerHTML = yyyydmm;
+        select.appendChild(opt);
+      }
+      opt.selected = true
+    };
+
+    function nextmonth() {
+      /* increment yearmonth and makecal */
+      var now = document.getElementById("yearmonth").selectedIndex;
+      var opts = document.getElementById("yearmonth").options;
+      nowi = opts[now].index
+      if (nowi < (opts.length - 1)) {
+        opts[nowi + 1].selected = true;
+        makecal();
+      }
+    };
+
+    function prevmonth() {
+      /* decrement yearmonth and makecal */
+      var now = document.getElementById("yearmonth").selectedIndex;
+      var opts = document.getElementById("yearmonth").options;
+      nowi = opts[now].index
+      if (nowi > 0) {
+        opts[nowi - 1].selected = true;
+        makecal();
+      }
+    };
+    function ObsStyle(feature, edges, colors) {
+      val = feature.properties.val;
+      for (let i = 0; i < edges.length; i++ ) {
+        if (val < edges[i]) {
+          return colors[i]
+        }
+      }
+      return '#000000'
+    };
+
+    function aqiPMObsStyle(feature) {
+      var edges = [-5., 10, 20, 30, 50, 70, 90, 120, 500.4]
+      var colors = [
+        '#808080', '#009600', '#99cc00', '#ffff99', '#ffff00', '#ffcc00', '#f79900',
+        '#ff0000', '#d60093', '#000000'
+      ];
+      return ObsStyle(feature, edges, colors)
+    };
+
+    function aqiO3ObsStyle(feature) {
+      var edges = [-5., 60, 80, 100, 112, 125, 1000]
+      var colors = [
+        '#808080', '#00fe00', '#fefe80', '#fefe00', '#fbbe43', '#fe8000', '#fe0000',
+        '#000000'
+      ];
+      return ObsStyle(feature, edges, colors)
+    };
+
+    function aqiMapStyle(feature) {
+      opts = {stroke: false, fillOpacity: 0.4, color: feature.properties.OGR_STYLE.substr(9, 7)};
+      return opts;
+    };
+
+    function incminutes(n) {
+      const gTime = document.getElementById("maptime");
+      gdatestr = gTime.value;
+      gdate = new Date(`${gdatestr}:00`);
+      gdate.setUTCMinutes(gdate.getMinutes() - gdate.getTimezoneOffset() + n);
+      gTime.value = gdate.toISOString().slice(0,14) + '00';
+      loadMap(); loadObs(); loadEval();
+    };
+    function resetEvalIndex(){
+      const cvsel = document.getElementById("cvidx");
+      cvsel.innerHTML = '';
+    }
+    function calculateSlopeIntercept(xvals, yvals) {
+      /* Calculate Slope and Intercept using Least Squares Optimization */
+      let sumX = 0;
+      let sumY = 0;
+      let sumXY = 0;
+      let sumX2 = 0;
+      const n = xvals.length;
+
+      for (let i = 0; i < n; i++) {
+        x = xvals[i];
+        y = yvals[i]
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumX2 += x * x;
+      }
+      const meanX = sumX / n;
+      const meanY = sumY / n;
+
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      //console.log('si', meanX, meanY);
+      const intercept = meanY - slope * meanX;
+      const si = [slope, intercept];
+      return si;
+    };
+
+    function calculateR(xvals, yvals){
+        /* Calculate Pearson Correlation */
+        numsum = 0
+        densum1 = 0
+        densum2 = 0
+        xmean = xvals.reduce((a, b) => a + b, 0) / xvals.length
+        ymean = yvals.reduce((a, b) => a + b, 0) / yvals.length
+        //console.log('oval', rmean, cmean);
+
+        const n = xvals.length;
+        for (let i = 0; i < n; i++) {
+          xdiff = xvals[i] - xmean;
+          ydiff = yvals[i] - ymean;
+          numsum = numsum + xdiff * ydiff
+          densum1 = densum1 + xdiff**2
+          densum2 = densum2 + ydiff**2
+        }
+        r = numsum / Math.sqrt(densum1 * densum2)
+        return r
+    };
+    function loadEval(){
+      /* Add Cross-Validation Scatter Plot */
+      const gTimeUTC = document.getElementById("maptimez");
+      const gTime = document.getElementById("maptime");
+
+      // Convert string to date and get parts
+      gdatestr = gTime.value;
+      gdate = new Date(`${gdatestr}:00`);
+      gyear = gdate.getUTCFullYear().toString();
+      gmon = (gdate.getUTCMonth() + 1).toString().padStart(2, "0");
+      gday = gdate.getUTCDate().toString().padStart(2, "0");
+      ghour = gdate.getUTCHours().toString().padStart(2, "0");
+      source = document.getElementById("mapsource").value;
+      urlroot = 'https://airnow-navigator-layers.s3.us-east-2.amazonaws.com'
+      const canvas = document.getElementById("evalcnvs");
+      const ctx = canvas.getContext("2d");
+      const evaltxtbox = document.getElementById("evaltext");
+      canvas.width = 350;
+      canvas.height = 300;
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      evaltxtbox.innerHTML = (
+        '<br/>Black dots: regulatory<br/>'
+        + '<span style="color: red;">Red dots: mobile</span><br/>'
+        + '<span style="color: #888888;">Grey line: LSQ regression</span><br/>'
+        + '<h3>Data Summary</h3><table>'
+        + "<tr><th>Label</th><th>N</th><th>Min</th><th>Mean</th><th>Max</th><tr>"
+        + "<tr><td>Obs</td><td>NaN</td><td>NaN</td><td>NaN</td><td>NaN</td></tr>"
+        + "<tr><td>10xVal</td><td>NaN</td><td>NaN</td><td>NaN</td><td>NaN</td></tr>"
+        + "</table>"
+        + "<h3>Least Squares Regression</h3><table><tr><th>r</th><th>slope</th><th>intercept</th></tr>"
+        + "<tr><td>NaN</td><td>NaN</td><td>NaN</td></tr></table>"
+        + '<br/><a href="">Raw Validation Results</a>'
+        + '<br/><a href="">NetCDF Results</a>'
+      );
+
+      if (source == "GOES-PM25") {
+        evalurl = ''
+        return
+      } else if (source == "AirFuse-O3") {
+        evalurl = `${urlroot}/fusion/O3/${gyear}/${gmon}/${gday}/${ghour}/Fusion_O3_NAQFC_airnow_${gyear}-${gmon}-${gday}T${ghour}Z_CV.csv`;
+        ncurl = `${urlroot}/fusion/O3/${gyear}/${gmon}/${gday}/${ghour}/Fusion_O3_NAQFC_airnow_${gyear}-${gmon}-${gday}T${ghour}Z.nc`;
+        spc = "O3"
+        unit = "ppb"
+        obsidx = 14
+        //cvidx = 49
+        cvkey = 'LOO_aVNA'
+      } else {
+        evalurl = `${urlroot}/fusion/PM25/${gyear}/${gmon}/${gday}/${ghour}/Fusion_PM25_NAQFC_${gyear}-${gmon}-${gday}T${ghour}Z_AirNow_CV.csv`;
+        ncurl = `${urlroot}/fusion/PM25/${gyear}/${gmon}/${gday}/${ghour}/Fusion_PM25_NAQFC_${gyear}-${gmon}-${gday}T${ghour}Z.nc`;
+        spc = "PM25"
+        unit = "micrograms/m<sup>3</sup>"
+        obsidx = 14
+        //cvidx = 70
+        cvkey = 'FUSED_aVNA'
+      };
+      // Look at NAQFC isntead of AirFuse
+      //cvidx = obsidx - 1;
+      fpromise = fetch(evalurl).then(res => {
+        return res.text();
+      }).then(data => {
+        let result = data.split(/\r?\n|\r/).map( e => {
+          var efix = e.replace(/"[^"]+"/g, function(v) {
+            return v.replace(/,/g, '###');
+          });
+          return efix.split(/,/)
+        })
+        ovals = [];
+        yvals = [];
+        monidx = [];
+        xval = 0
+        osum = 0
+        ysum = 0
+        omin = 999
+        omax = 0
+        ymin = 999
+        ymax = 0
+        nval = 0
+        result.forEach( e => {
+          const cvsel = document.getElementById("cvidx");
+          if (cvsel.options.length < 2) {
+            var i = 0
+            cvsel.innerHTML = '';
+            e.forEach( v => {
+              if (i == obsidx) {
+                console.log(i, v, 'obs');
+              } else if (v == cvkey) {
+                console.log(i, v, 'mod')
+              } else {
+                //console.log(i, v)
+              };
+              var opt = document.createElement('option');
+              opt.value = i;
+              opt.innerHTML = v;
+              if (v == cvkey) {
+                opt.selected = true;
+              }
+              cvsel.appendChild(opt);
+              i = i + 1
+            });
+          };
+          cvidx = cvsel.value;
+          if (isFinite(e[obsidx])) {
+            oval = parseFloat(e[obsidx])
+            if (isFinite(e[cvidx])) { //  Exclude Mobile Monitors add & ~e[10].includes("MM")
+              yval = parseFloat(e[cvidx])
+              //console.log(e[10], oval, yval)
+              ovals.push(oval);
+              yvals.push(yval);
+              monidx.push(e[10])
+              osum = osum + oval
+              ysum = ysum + yval
+              omax = Math.max(omax, oval);
+              omin = Math.min(omin, oval);
+              ymax = Math.max(ymax, yval);
+              ymin = Math.min(ymin, yval);
+              nval = nval + 1;
+            };
+          };
+
+        })
+        /* Setup Canvas Objects a Scatter Plot */
+        const canvas = document.getElementById("evalcnvs");
+        const ctx = canvas.getContext("2d");
+        const evaltxtbox = document.getElementById("evaltext");
+        // Define scatter plot space
+        // - x0/x0 is the 0/0 point)
+        // - dx/dy is plottable space
+        // - xval is the extent value i.e.,
+        x0 = 100
+        y0 = 50
+        dx = 250;
+        dy = 250;
+        xval = Math.max(omax, ymax) * 1.05;
+        scalex = dx / xval
+        scaley = dy / xval
+        canvas.width = x0 + dx;
+        canvas.height = y0 + dy;
+
+        ctx.fillStyle = "black";
+        ctx.strokeStyle = '#000000';
+        ctx.font = "24px Arial"
+        ctx.textAlign = "center";
+        ctx.fillText("Obs", x0 + dx / 2, dy + 40)
+        ctx.font = "24px Arial";
+        ctx.textAlign = "left";
+        //ctx.fillText("r=" + corrval.toFixed(2),280,240);
+        ctx.save();
+        ctx.translate(x0 / 2, dy / 2);
+        ctx.rotate(-Math.PI/2);
+        ctx.textAlign = "center";
+        ctx.fillText("10x-Cross Val", 0, 0);
+        ctx.restore();
+
+        // Add spines lines x/y-axis
+        ctx.beginPath();
+        ctx.moveTo(x0, 0);
+        ctx.lineTo(x0, dy);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x0, dy);
+        ctx.lineTo(x0 + dx, dy);
+        ctx.stroke();
+        // Add tick marks
+        ctx.font = "10px Arial"
+        for (let i=0; i<dy; i = i + 50) {
+          ctx.beginPath();
+          ctx.moveTo(i + x0, dy);
+          ctx.lineTo(i + x0, dy + 5);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x0, dy - i);
+          ctx.lineTo(x0 - 5, dy - i);
+          ctx.stroke();
+          ctx.textAlign = "right";
+          ctx.fillText((i / scaley).toFixed(2), x0 - 7, dy - i + 3)
+          ctx.textAlign = "center";
+          ctx.fillText((i / scalex).toFixed(2), x0 + i, dy + 15)
+        }
+        // Add reguatory monitor dots
+        ctx.fillStyle = "black";
+        ctx.strokeStyle = '#000000';
+        for (let i = 0; i < nval; i++){
+          if (~monidx[i].includes('MM')) {
+            ctx.beginPath();
+            ctx.arc(x0 + ovals[i] * scalex, dy - yvals[i] * scaley, 1, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        }
+        // Add mobile monitor dots
+        ctx.fillStyle = "red";
+        ctx.strokeStyle = '#ff0000';
+        for (let i = 0; i < nval; i++){
+          if (monidx[i].includes('MM')) {
+            ctx.beginPath();
+            ctx.arc(x0 + ovals[i] * scalex, dy - yvals[i] * scaley, 1, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        }
+        ctx.fillStyle = "black";
+        ctx.strokeStyle = '#000000';
+
+        rmean = osum / ovals.length;
+        cmean = ysum / yvals.length;
+        corrval = calculateR(ovals, yvals);
+        slope_intercept = calculateSlopeIntercept(ovals, yvals);
+        ctx.strokeStyle = '#888888';
+        ctx.beginPath();
+        ctx.moveTo(x0, dy - slope_intercept[1] / xval * dy)
+        ctx.lineTo(x0 + dx, dy - (xval * slope_intercept[0] + slope_intercept[1]) /xval * dy)
+        ctx.stroke()
+        ctx.strokeStyle = '#000000';
+        ctx.beginPath();
+        ctx.moveTo(x0, dy)
+        ctx.lineTo(x0 + dx, 0)
+        ctx.stroke()
+        evaltxtbox.innerHTML = (
+          '<br/>Black dots: regulatory<br/>'
+          + '<span style="color: red;">Red dots: mobile</span><br/>'
+          + '<span style="color: #888888;">Grey line: LSQ regression</span><br/>'
+          + '<h3>Data Summary</h3><table>'
+          + "<tr><th>Label</th><th>N</th><th>Min</th><th>Mean</th><th>Max</th><tr>"
+          + "<tr><td>Obs</td><td>" + ovals.length.toFixed(0) + "</td><td>"
+          + omin.toFixed(2) + "</td><td>" + rmean.toFixed(2) + "</td><td>"
+          + omax.toFixed(2) + "</td></tr>"
+          + "<tr><td>10xVal</td><td>" + yvals.length.toFixed(0) + "</td><td>"
+          + ymin.toFixed(2) + "</td><td>" + cmean.toFixed(2) + "</td><td>"
+          + ymax.toFixed(2) + "</td></tr></table>"
+          + "<h3>Least Squares Regression</h3><table><tr><th>r</th><th>slope</th><th>intercept</th></tr><tr><td>"
+          + corrval.toFixed(2) + "</td><td>" + slope_intercept[0].toFixed(2) + "</td><td>" + slope_intercept[1].toFixed(2)+ "</td></tr></table>"
+          + '<br/><a href="' + evalurl + '">Raw Validation Results</a>'
+          + '<br/><a href="' + ncurl + '">NetCDF Results</a>'
+        );
+
+      });
+    }
+    function loadObs(){
+      /* Add AirNow Observations to the Plot */
+
+      const aTimeUTC = document.getElementById("airnowz");
+      const gTime = document.getElementById("maptime");
+      const aShow = document.getElementById("airnow");
+      const obs = [];
+      obsGroup.clearLayers();
+      // Convert string to date and get parts
+      gdatestr = gTime.value;
+      gdate = new Date(`${gdatestr}:00`);
+      gyear = gdate.getUTCFullYear().toString();
+      gmon = (gdate.getUTCMonth() + 1).toString().padStart(2, "0");
+      gday = gdate.getUTCDate().toString().padStart(2, "0");
+      ghour = gdate.getUTCHours().toString().padStart(2, "0");
+      source = document.getElementById("mapsource").value;
+      bbox = map.getBounds();
+      wb = bbox.getWest();
+      eb = bbox.getEast();
+      sb = bbox.getSouth();
+      nb = bbox.getNorth();
+      otimestamp = `${gyear}-${gmon}-${gday}T${ghour}:00:00-0000`
+      if ( aShow.checked != true ) {
+        aTimeUTC.textContent = `AirNow disabled`;
+        aTimeUTC.style.backgroundColor = '#ffffff'
+        return
+      }
+      if ( source == "AirFuse-O3" ) {
+        anspc = 'ozone'
+        spclabel = 'O3'
+        aqiObsStyle = aqiO3ObsStyle;
+      } else {
+        anspc = 'pm25'
+        spclabel = 'PM25'
+        aqiObsStyle = aqiPMObsStyle;
+      }
+      aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loading...)`;
+      aTimeUTC.style.backgroundColor = '#ffff00'
+      rsigroot = "https://ofmpub.epa.gov/rsig/rsigserver?SERVICE=wcs&VERSION=1.0.0&REQUEST=GetCoverage&FORMAT=ascii"
+      rsigtime = `&TIME=${gyear}-${gmon}-${gday}T${ghour}:00:00Z/${gyear}-${gmon}-${gday}T${ghour}:59:59Z`
+      obsurl = `${rsigroot}${rsigtime}&BBOX=-130,20,-60,60&COVERAGE=airnow.${anspc}&COMPRESS=0`;
+      // Get layer and load with styler
+      obsGroup.clearLayers();
+      // console.log(anspc);
+      // console.log(otimestamp);
+      // console.log(Object.keys(obsCache[anspc]));
+      if ( otimestamp in obsCache[anspc] ) {
+        console.log(`Cached ${anspc} ${gdatestr}`);
+        gjLay = L.geoJSON(obsCache[anspc][otimestamp], {
+          pointToLayer: function (feature, latlng) {
+            c = aqiObsStyle(feature);
+            return L.circle(latlng, {radius: 1000, color: c, weight: 5, pane: airnowpane});
+          },
+          onEachFeature: function (feature, layer) {
+            layer.bindPopup(`<p>${feature.properties.STATION}</p><p>${anspc}: ${feature.properties.val} ${unit}</p>`);
+          }
+        })
+        obsGroup.clearLayers()
+        obsGroup.addLayer(gjLay)
+        aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loaded)`;
+        aTimeUTC.style.backgroundColor = '#00e400'
+        return
+      }
+      fpromise = fetch(obsurl).then(res => {
+        return res.text();
+      }).then(data => {
+        let result = data.split(/\r?\n|\r/).map( e => {
+          return e.split(/\s+/)
+        })
+        features = [];
+        result.forEach( e => {
+          if (isFinite(e[1])) {
+            e_val = parseFloat(e[4])
+            // -9999 is missing; and AirNow assumes below -10, it is bad
+            if (e_val > -10) {
+            features.push(
+              {
+                'type': 'Feature',
+                'properties': {
+                  'STATION': e[5], 'val': e_val,
+                  'Timestamp': e[0]
+                },
+                'geometry': {
+                  'coordinates': [parseFloat(e[1]), parseFloat(e[2])],
+                  'type': 'Point'
+                }
+              }
+            )}
+          }
+        })
+        return {'type': 'FeatureCollection', 'features': features};
+      }).then(res => {
+        obsCache[anspc][res.features[0].properties.Timestamp] = res
+        if (anspc == "pm25") {
+          unit = "micrograms/m<sup>3</sup>";
+        } else {
+          unit = "ppb";
+        }
+        gjLay = L.geoJSON(res, {
+          pointToLayer: function (feature, latlng) {
+            c = aqiObsStyle(feature);
+            return L.circle(latlng, {radius: 1000, color: c, weight: 5, pane: airnowpane});
+          },
+          onEachFeature: function (feature, layer) {
+            layer.bindPopup(`<p>${feature.properties.STATION}</p><p>${anspc}: ${feature.properties.val} ${unit}</p>`);
+          },
+          pane: goespane
+        })
+        obsGroup.clearLayers()
+        obsGroup.addLayer(gjLay)
+        gjLay.bringToFront()
+        aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loaded)`;
+        aTimeUTC.style.backgroundColor = '#00e400'
+      });
+      fpromise.catch((error) => {
+        aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (${error})`;
+        aTimeUTC.style.backgroundColor = '#ff0000'
+      });
+    };
+
+    function loadMap(){
+      /* Load a Map (AirFuse-PM25; AirFuse-O3, or GOES-PM25 */
+      const gTimeUTC = document.getElementById("maptimez");
+      const gTime = document.getElementById("maptime");
+
+      // Convert string to date and get parts
+      gdatestr = gTime.value;
+      gdate = new Date(`${gdatestr}:00`);
+      gyear = gdate.getUTCFullYear().toString();
+      gmon = (gdate.getUTCMonth() + 1).toString().padStart(2, "0");
+      gday = gdate.getUTCDate().toString().padStart(2, "0");
+      ghour = gdate.getUTCHours().toString().padStart(2, "0");
+      source = document.getElementById("mapsource").value;
+      mapGroup.clearLayers();
+
+      if (source == "none") {
+        gTimeUTC.textContent = `GOES and AirFuse disabled`;
+        gTimeUTC.style.backgroundColor = '#ffffff'
+        return
+      }
+      gTimeUTC.textContent = `${source} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loading...)`;
+      gTimeUTC.style.backgroundColor = '#ffff00'
+      document.getElementById("pmlegend").style.visibility = "collapse";
+      document.getElementById("o3legend").style.visibility = "collapse";
+
+      // Construct layer paths
+      // if CORS enabled
+      // urlroot = 'https://gaftp.epa.gov/Air/aqmg/bhenders/HAQAST/AirNow/examples/'
+      urlroot = 'https://airnow-navigator-layers.s3.us-east-2.amazonaws.com'
+      if (source == "GOES-PM25") {
+        gcurl = `${urlroot}/goes/PM25/${gyear}/${gmon}/${gday}/${ghour}/pm25_gwr_aod_exp50_${gyear}${gmon}${gday}${ghour}_dnn.geojson`;
+        spc = "PM25"
+        unit = "micrograms/m<sup>3</sup>"
+        document.getElementById("pmlegend").style.visibility = "visible";
+      } else if (source == "AirFuse-O3") {
+        gcurl = `${urlroot}/fusion/O3/${gyear}/${gmon}/${gday}/${ghour}/Fusion_O3_NAQFC_airnow_${gyear}-${gmon}-${gday}T${ghour}Z.geojson`;
+        spc = "O3"
+        unit = "ppb"
+        document.getElementById("o3legend").style.visibility = "visible";
+      } else {
+        gcurl = `${urlroot}/fusion/PM25/${gyear}/${gmon}/${gday}/${ghour}/Fusion_PM25_NAQFC_${gyear}-${gmon}-${gday}T${ghour}Z.geojson`;
+        spc = "PM25"
+        unit = "micrograms/m<sup>3</sup>"
+        document.getElementById("pmlegend").style.visibility = "visible";
+      };
+      // Get layer and load with styler
+      gfpromise = fetch(gcurl).then(function(response) {
+        return response.json();
+      }).then(function(data) {
+        gjLay = L.geoJSON(data, {
+          style: aqiMapStyle,
+          onEachFeature: function (feature, layer) {
+            fname = feature.properties.Name.replace(
+              'UnhealthyforSensitiveGroups', 'Unhealthy for Sensitive Groups'
+            ).replace(
+              'VeryUnhealthy', 'Very Unhealthy'
+            );
+            aqic = feature.properties.AQIC;
+            layer.bindPopup(`<h1>${fname}</h1><p>AQI Mid: ${aqic} ${unit}</p>`);
+          }
+        });
+        mapGroup.clearLayers();
+        mapGroup.addLayer(gjLay);
+        gTimeUTC.textContent = `${source} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loaded)`;
+        gTimeUTC.style.backgroundColor = '#00e400'
+      });
+      gfpromise.catch((error) => {
+        gTimeUTC.textContent = `${source} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (not available)`;
+        gTimeUTC.style.backgroundColor = '#ff0000'
+      });
+	  return true
+    };
+    function firstLoad() {
+      /* Set Initial Time and Load Page Options */
+      var now = new Date();
+      // now.setMinutes(now.getMinutes() - now.getTimezoneOffset() - 120);
+      now.setMinutes(now.getMinutes() - 150);
+      daystart = 13;
+      if ([5, 6].includes(now.getUTCMonth())) {
+        dayend = 3;
+      } else if ([4, 7].includes(now.getUTCMonth())) {
+        dayend = 2
+      } else if ([3, 8].includes(now.getUTCMonth())) {
+        dayend = 1
+      } else if ([0, 1, 2, 9, 10, 11].includes(now.getUTCMonth())) {
+        dayend = 0
+      }
+      // while (now.getUTCHours() > dayend && now.getUTCHours() < daystart) {
+      //   console.log(now.toISOString().slice(0,14));
+      //   now.setTime(now.getTime() - 60 * 60 * 1000);
+      //}
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('maptime').value = now.toISOString().slice(0,14) + '00';
+      document.getElementById("maptime").addEventListener("change", (event) => {loadMap(); loadObs(); loadEval();});
+      document.getElementById("mapsource").addEventListener("change", (event) => {loadMap(); loadObs(); loadEval(); makecal(); resetEvalIndex();});
+      document.getElementById("airnow").addEventListener("change", (event) => {loadMap(); loadObs(); loadEval();});
+      //document.getElementById("cvkey").addEventListener("change", (event) => {loadEval();});
+      loadOpts();
+    };
+    function zoomit(){
+		lon = parseFloat(document.getElementById('lon').value);
+		lat = parseFloat(document.getElementById('lat').value);
+		zval = parseInt(document.getElementById('zoomto').value);
+		map.setView([lat, lon], zval);
+		var legend = L.control({position: 'bottomright'});
+	}
+	function findGetParameter(parameterName) {
+		var result = null, tmp = [];
+		location.search
+			.substr(1)
+			.split("&")
+			.forEach(function (item) {
+			  tmp = item.split("=");
+			  if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1]);
+			});
+		return result;
+	};
+	function loadOpts() {
+		dt = findGetParameter('time');
+		if (dt != null) {
+			udt = dt.replace('T', ' ').replace('Z', '') + ':00 GMT+00:00'
+			dt = new Date(udt);
+			dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+			document.getElementById('maptime').value = dt.toISOString().slice(0,16);
+		}
+		layer = findGetParameter("layer");
+		if (layer != null) {
+			document.getElementById('mapsource').value = layer;
+		}
+		anv = findGetParameter("airnow");
+		if ((anv == 1) || (anv == "1")) {
+			document.getElementById('airnow').checked = true;
+		} else if ((anv == 0) || (anv == "0")) {
+			document.getElementById('airnow').checked = false;
+		}
+		lon = findGetParameter("lon");
+		if (lon != null) {
+			document.getElementById('lon').value = lon
+		}
+		lat = findGetParameter("lat");
+		if (lat != null) {
+			document.getElementById('lat').value = lat
+		}
+		zval = findGetParameter("zoom");
+		if (zval != null) {
+			document.getElementById('zoomto').value = zval;
+		}
+		loadMap(); loadObs(); loadEval(); zoomit();
+	}
+	function shareURL() {
+		url = location.protocol + '//' + location.host + location.pathname + '?'
+		c = map.getCenter()
+		lat = c.lat
+		lon = c.lng
+		zoom = map.getZoom();
+		date = document.getElementById('maptime').value
+		lstdate = new Date(date)
+		utcdate = lstdate.toISOString().slice(0, 14) + '00Z';
+		layer = document.getElementById('mapsource').value
+		if (document.getElementById('airnow').checked == true) {
+			airnow = 1;
+		} else {
+			airnow = 0;
+		}
+		url = url + `lon=${lon}&lat=${lat}&zoom=${zoom}&time=${utcdate}&layer=${layer}&airnow=${airnow}`
+		const tempTextarea = document.createElement("textarea");
+		document.body.appendChild(tempTextarea);
+		document.body.appendChild(tempTextarea);
+		tempTextarea.value = url;
+		tempTextarea.select();
+		document.execCommand("copy");
+		document.body.removeChild(tempTextarea);
+		// console.log(url);
+	}
+  </script>
+</head>
+<body onload="javascript:setcalmonths();makecal();loadOpts();">
+<h1>Prototype Geostationary Satellite and Fusion Viewer</h1>
+<div style="display: inline;">
+  <table style="border: 1px solid black;"><tr id="pmlegend" style="visibility: visible;">
+    <td style="background-color: #ffffff;">PM.5 micrograms/m**3:</td>
+    <td style="background-color: #80808074;">&lt;-5.0</td>
+    <td style="background-color: #00960074;">-5 to 10</td>
+    <td style="background-color: #99cc0074;">10 to 20</td>
+    <td style="background-color: #ffff9974;">20 to 30</td>
+    <td style="background-color: #ffff0074;">30 to 50</td>
+    <td style="background-color: #ffcc0074;">50 to 70</td>
+    <td style="background-color: #f7990074;">70 to 90</td>
+    <td style="background-color: #ff000074;">90 to 120</td>
+    <td style="background-color: #d6009374;">120 to 500.4</td>
+    <td style="background-color: #00000074;"><font color="white">&gt 500.4</font></td>
+  </tr><tr id="o3legend" style="visibility: visible;">
+    <td style="background-color: #ffffff">Ozone ppb:</td>
+    <td style="background-color: #80808074;">&lt;-5.0</td>
+    <td style="background-color: #00fe0074;">-5 to 60</td>
+    <td style="background-color: #fefe8074;">60 to 80</td>
+    <td style="background-color: #fefe0074;">80 to 100</td>
+    <td style="background-color: #fbbe4374;">100 to 112</td>
+    <td style="background-color: #fe800074;">112 to 125</td>
+    <td style="background-color: #fe000074;">125 to 1000</td>
+    <td style="background-color: #00000074;"><font color="white">&gt 1000</font></td>
+  </tr></table>
+</div>
+<div>
+  <div style="display: float;" id="outercontainer">
+    <div id="container">
+      <div id="map" onload="javascript:initmap()"></div>
+    </div>
+  </div>
+</div>
+
+<label for="maptime">Local Time:</label>
+
+<button onclick="incminutes(-1440);" type="button" id="prevd">&lt;&lt;</button>
+<button onclick="incminutes(-60);" type="button" id="prev">&lt;</button>
+<input type="datetime-local" id="maptime"
+  name="maptime" value="2023-08-30T16:00" step="3600" size="6em"
+  min="2023-08-20T00:00"
+/>
+<button onclick="incminutes(60);" type="button" id="next">&gt;</button>
+<button onclick="incminutes(1440);" type="button" id="nextd">&gt;&gt;</button>
+<label for="mapsource">Choose a product:</label>
+<select name="mapsource" id="mapsource" >
+  <option value="AirFuse-PM25">AirFuse-PM25</option>
+  <option value="GOES-PM25">GOES-PM25</option>
+  <option value="AirFuse-O3">AirFuse-O3</option>
+  <option value="none">None</option>
+</select>
+<label for="airnow">Show AirNow:</label>
+<input type="checkbox" id="airnow">
+<br/>
+<label for="zoomto">Zoom to:</label>
+<input id="lat" min="20" max="70" value="40.0" size="2em" onchange="javascript:zoomit();"/>
+<input id="lon" min="-125" max="-55" value="-97.0" size="3em" onchange="javascript:zoomit();"/>
+<input id="zoomto" min="4" max="19" value="4" type="hidden"/>
+
+<button onclick="javascript:shareURL();" type="button">Copy URL</button><input type="hidden" id="urlshare" size="0.01em"></input>
+
+<div id="maptimez"></div>
+<div id="airnowz"></div>
+<h2>10-Fold Cross Validation Result</h2>
+<div id="outercontainer">
+  <table>
+    <tr>
+    <td><canvas id="evalcnvs" width="300" height="300" sty="#ff0000" style="border:1px solid #000000;"></canvas></td>
+  <td><div id="evaltext" height="20" style="font-family: monospace;"></div></td>
+    </tr>
+</table>
+</div>
+
+<script>
+/* This section seems to need to be inline... not sure why */
+var gjLay;
+var map = L.map('map', { zoomSnap: 0.1}).setView([40., -97.], 4);
+var goespane = map.createPane('goes');
+var airnowpane = map.createPane('airnow');
+var mapGroup = new L.LayerGroup();
+var obsGroup = new L.LayerGroup();
+var obsCache = {};
+obsCache["ozone"] = {};
+obsCache["pm25"] = {};
+mapGroup.addTo(map);
+obsGroup.addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+firstLoad();
+</script>
+
+<label>Choose Validation Key:</label>
+<select id="cvidx" onchange="javascript:loadEval()"></select>
+<h2 id="caltitle">Data Calendar</h2>
+<select id="yearmonth" onchange="javascript:makecal()">
+</select>
+<button id="refresh" onclick="javascript:makecal()">go</button>
+
+<div class="month">
+<ul>
+  <li class="prev" onclick="javascript:prevmonth()">&#10094;</li>
+  <li class="next" onclick="javascript:nextmonth()">&#10095;</li>
+  <li id="month_title"></li>
+</ul>
+</div>
+
+<ul class="weekdays">
+<li id="day_1"></li>
+<li id="day_2"></li>
+<li id="day_3"></li>
+<li id="day_4"></li>
+<li id="day_5"></li>
+<li id="day_6"></li>
+<li id="day_7"></li>
+</ul>
+
+<ul class="days">
+<li id="dom_1">1</li>
+<li id="dom_2">2</li>
+<li id="dom_3">3</li>
+<li id="dom_4">4</li>
+<li id="dom_5">5</li>
+<li id="dom_6">6</li>
+<li id="dom_7">7</li>
+<li id="dom_8">8</li>
+<li id="dom_9">9</li>
+<li id="dom_10">10</li>
+<li id="dom_11">11</li>
+<li id="dom_12">12</li>
+<li id="dom_13">13</li>
+<li id="dom_14">14</li>
+<li id="dom_15">15</li>
+<li id="dom_16">16</li>
+<li id="dom_17">17</li>
+<li id="dom_18">18</li>
+<li id="dom_19">19</li>
+<li id="dom_20">20</li>
+<li id="dom_21">21</li>
+<li id="dom_22">22</li>
+<li id="dom_23">23</li>
+<li id="dom_24">24</li>
+<li id="dom_25">25</li>
+<li id="dom_26">26</li>
+<li id="dom_27">27</li>
+<li id="dom_28">28</li>
+<li id="dom_29">29</li>
+<li id="dom_30">30</li>
+<li id="dom_31">31</li>
+</ul>
+
+
+<h1>Research Draft: HAQAST Geostationary Satellite AirNow Team</h1>
+Unofficial draft, do not use or cite. This page is a simple prototype that builds on the HAQAST AirNow Tiger
+Team and allows team members to exploring data before official platform is available. The prototype displays
+Hourly AQI-like surfaces from GOES-PM25 and AirFuse. At this time, AirFuse does not incorporate GOES-PM25.
+That is still in progress. The Tiger Team description from the
+<a href="https://haqast.org/tiger-teams/#2021-tiger-teams">haqast.org</a> is copied below and is followed by references for more details.
+
+<h1>2023 Tiger Team Project Description (copied from HAQAST)</h1>
+<ul>
+<li>Title: Enabling USEPA to ingest high-frequency satellite air quality data into the AirNow system</li>
+<li>Team Lead: HAQAST Investigator Yang Liu</li>
+<li>Partners: Phil Dickerson and Barron Henderson (USEPA), Kazuhiko Ito (New York City Department of Health and Mental Hygiene)</li>
+<li>HAQAST Members and Collaborators: Pawan Gupta (NASA), Jingqiu Mao (University of Alaska), Randall Martin (Washington University)</li>
+</ul>
+<p>
+Satellite-driven fine particulate matter (PM2.5) concentration estimates with comprehensive spatial and temporal coverage are valuable to air quality (AQ) management and public health agencies in order to identify air pollution hot spots, develop effective emissions control policies, estimate the PM2.5 disease burden, and promote awareness and solutions to community-level air pollution concerns. This project aims to integrate GOES-R aerosol optical depth (AOD) data into operational air quality monitoring data systems such as EPA’s AirNow, and operational public health decision support systems such as NYC’s asthma syndromic surveillance system. Our expected deliverables include (1) an automated near-real-time daily PM2.5 model system designed for NYC and associated documentation, and (2) a machine learning algorithm to generate hourly PM2.5 concentrations based on GOES-R AOD for AirNow and associated documentation.
+</p>
+<h1>2021 Tiger Team Project Description (copied from HAQAST)</h1>
+<ul>
+<li>Title: Enabling USEPA to ingest high-frequency satellite air quality data into the AirNow system</li>
+<li>Team Lead: HAQAST investigator Pawan Gupta</li>
+<li>Partners: Phil Dickerson and Barron Henderson with the US Environmental Protection Agency (EPA), and Shobha Kondragunta with the National Oceanic and Atmospheric Administration (NOAA)</li>
+<li>HAQAST Members and Collaborators: Jingqiu Mao, Yang Liu, Kel Markert, Robert Levy, Randall Martin, Amber J. Soja, Martin Stuefer, Jenny Bratburd, Emily Gargulinksi, Yanshun Li, and Daniel Tong also contribute to this team.</li>
+</ul>
+<p>
+The EPA, in partnership with other federal and state agencies, operates the AirNow program (airnow.gov). The AirNow system is EPA's one-stop resource for accessing air quality (AQ) information. The major gap in the AirNow system is limited spatial coverage from ground monitors, limited information on smoke and dust transport, and regional AQ view. NASA, NOAA, and other U.S. agencies have been building on satellite capabilities for AQ monitoring for almost two decades using low earth-orbiting satellites and, more recently, with geostationary satellites. This project initiated a new collaboration between HAQAST members, NOAA, and USEPA to develop a value added hourly and daily PM2.5 dataset covering CONUS region and integrate it into the AirNow system.
+</p>
+<p>
+The new data layers at high temporal and spatial resolutions in the USEPA's AirNow system will address significant monitoring gaps in many areas around the country, provide special health advisory during smoke and dust events and generate a framework for ingesting data from future NASA/NOAA missions (i.e., TEMPO, MAIA, ATMOS, GEO-XO) into a regulatory agency's monitoring system. Thus, the project is an excellent opportunity for NASA and NOAA to incorporate Earth observations into environmental monitoring by federal agencies within the United States. You can read more about this team's efforts here.
+</p>
+<h1>References</h1>
+<ol>
+  <li>
+    NASA Health and Air Quality Applied Science Team (HAQAST, hay-cast) 2021 Tiger Team: Enabling USEPA to ingest high-frequency satellite air quality data into the AirNow system, url: <a href="https://haqast.org/tiger-teams/#2021-tiger-teams">https://haqast.org/tiger-teams/#2021-tiger-teams</a>
+  </li>
+  <li>
+    Bratburd, J., Gupta, P., Kondragunta, S., Zhang, H., Henderson, B. H., Dickerson, P., Sayeed, A., Liu, Y., Mao, J., Pruthi, D., Gudipudi, K., White, J. E., and Wyatt, R.: Air Quality Data When You Need It: Incorporating Satellite Data Updates into AirNow, <a href="https://haqast.org/wp-content/uploads/sites/91/2022/09/emplusq322_bratburd-final.pdf">EM Plus</a>, 2022.
+  </li>
+  <li>
+    O'Dell, K., Kondragunta, S., Zhang, H., Goldberg, D., Kerr, G.H., Wei, Z., Henderson, B.H., Anenberg, S.C.: O'Dell Public Health Benefits from Improved Identification of Severe Air Pollution Events with Geostationary Satellite Data, <i>submitted to GeoHealth</i>, 2023.
+  </li>
+  <li>
+    Zhang, H., Wei, Z., Henderson, B. H., Anenberg, S. C., O'Dell, K., Kondragunta, S.: Nowcasting Applications of Geostationary Satellite Hourly Surface PM2.5 Data. Weather and Forecasting, 37(12), 2313-2329, 2022. <a href="https://doi.org/10.1175/WAF-D-22-0114.1">doi: 10.1175/WAF-D-22-0114.1</a>
+  </li>
+  <li>
+    Zhang, H. and Kondragunta, S.: Daily and Hourly Surface PM2.5 Estimation From Satellite AOD, Earth Space Sci, 8, doi: <a href="https://doi.org/10.1029/2020EA001599">10.1029/2020EA001599</a>, 2021.
+  </li>
+</ol>
+
+</body>
+<html>

@@ -1,6 +1,6 @@
 import logging
 
-__version__ = '0.8.3'
+__version__ = '0.8.5'
 changelog = '''see CHANGELOG.md on github'''
 
 __doc__ = '''
@@ -83,8 +83,8 @@ cfgrib
 eccodes==1.2.0
 ecmwflibs
 pyrsig
-git+https://github.com/barronh/nna_methods.git
-git+https://github.com/barronh/airfuse.git
+nna_methods
+airfuse
 EOF
 pip install --user -r requirements.txt
 ```
@@ -93,7 +93,7 @@ Example for JupyterNotebook
 ---------------------------
 
 # In[1]
-%writefile requirements.txt
+%%writefile requirements.txt
 dask[array]
 dask[dataframe]
 xarray>=2023.11.0
@@ -106,8 +106,8 @@ cfgrib
 eccodes==1.2.0
 ecmwflibs
 pyrsig
-git+https://github.com/barronh/nna_methods.git
-git+https://github.com/barronh/airfuse.git
+nna_methods
+airfuse
 
 # In[2]
 %pip install --user -r requirements.txt

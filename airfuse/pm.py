@@ -19,7 +19,7 @@ import pandas as pd
 def pmfuse(
     startdate, model, bbox=None, cv_only=False,
     outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
-    modvar=None, andf=None, padf=None, **kwds
+    modvar=None, andf=None, padf=None, exclude_stations=True, **kwds
 ):
     """
     Must accept all arguments from airfuse.parser.parse_args
@@ -57,6 +57,9 @@ def pmfuse(
         Optional, used to bypass typical AirNow acquisition process.
         Must have pm25 column, x/y columns consistent with modvar, and a NAQFC
         or GEOSCF column from modvar
+    exclude_stations : bool
+        If True, use excluded stations identified by the Fire And Smoke Map.
+        This exclusion is only relevant if fusion target hour is within 1d of now.
     kwds : mappable
         Other unknown keywords
 
@@ -151,9 +154,11 @@ nearest obs.
     logging.info(f'AirNow N={andf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'AirNow N={andf.shape[0]}'])
 
-    if (pd.to_datetime('now', utc=True) - date).total_seconds() > 86400:
-        exclude_stations = None
-    elif exclude_stations is True:
+    if exclude_stations is True:
+        if (pd.to_datetime('now', utc=True) - date).total_seconds() > (86400):
+            exclude_stations = []
+
+    if exclude_stations is True:
         paexcludeurl = (
             'https://airfire-data-exports.s3.us-west-2.amazonaws.com/elwood/'
             + 'exclusion_lists/elwood_exclusion.json'

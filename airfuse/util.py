@@ -476,7 +476,8 @@ def df2nc(
 
 
 def to_webpng(
-    ncpath, bbox=None, dx=2000., dy=2000., key='FUSED_aVNA', pngpath=None
+    ncpath, bbox=None, dx=2000., dy=2000., key='FUSED_aVNA', pngpath=None,
+    norm=None, cmap=None
 ):
     """
     Convert AirFuse netcdf output to web mercator PNG for use with online
@@ -500,6 +501,12 @@ def to_webpng(
         Variable from ncpath to use (default: FUSED_aVNA)
     pngpath : str
         Path to save output as a png.
+    norm : matplotlib.colors.BoundaryNorm
+        Used to create discrete bins of data for compression. Defaults to
+        ant_1ho3_norm when key is aVNA
+    cmap : matplotlib.colors.LinearSegmentedColormap
+        Used to create discrete bins of data for compression. Defaults to
+        ant_1ho3_cmap when key is aVNA
 
     Returns
     ---------
@@ -513,8 +520,16 @@ def to_webpng(
     import xarray as xr
     import numpy as np
 
-    norm = airfuse.style.ant_1hpm_norm
-    cmap = airfuse.style.ant_1hpm_cmap
+    if norm is None:
+        if key == 'aVNA':
+            norm = airfuse.style.ant_1ho3_norm
+        else:
+            norm = airfuse.style.ant_1hpm_norm
+    if cmap is None:
+        if key == 'aVNA':
+            cmap = airfuse.style.ant_1ho3_cmap
+        else:
+            cmap = airfuse.style.ant_1hpm_cmap
     if isinstance(ncpath, str):
         f = xr.open_dataset(ncpath)
     else:

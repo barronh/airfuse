@@ -1,4 +1,5 @@
 Notable updates in reverse chronological order:
+* 0.8.5: * adding to_webpng and nna_methods dependencey
 * 0.8.2: * Adding AWS S3 option for NAQFC.
          * Adding more testing allowing for flaky tests (e.g., servers down?)
          * Changing default GOES to DNN.
