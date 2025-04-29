@@ -290,21 +290,11 @@ body {font-family: Verdana, sans-serif;}
     };
 
     function aqiPMObsStyle(feature) {
-      var edges = [-5., 10, 20, 30, 50, 70, 90, 120, 500.4]
-      var colors = [
-        '#808080', '#009600', '#99cc00', '#ffff99', '#ffff00', '#ffcc00', '#f79900',
-        '#ff0000', '#d60093', '#000000'
-      ];
-      return ObsStyle(feature, edges, colors)
+      return ObsStyle(feature, pmedges, pmcolors)
     };
 
     function aqiO3ObsStyle(feature) {
-      var edges = [-5., 60, 80, 100, 112, 125, 1000]
-      var colors = [
-        '#808080', '#00fe00', '#fefe80', '#fefe00', '#fbbe43', '#fe8000', '#fe0000',
-        '#000000'
-      ];
-      return ObsStyle(feature, edges, colors)
+      return ObsStyle(feature, o3edges, o3colors)
     };
 
     function aqiMapStyle(feature) {
@@ -740,15 +730,15 @@ body {font-family: Verdana, sans-serif;}
       source = document.getElementById("mapsource").value;
       mapGroup.clearLayers();
 
+      /*
       if (source == "none") {
         gTimeUTC.textContent = `GOES and AirFuse disabled`;
         gTimeUTC.style.backgroundColor = '#ffffff'
         return
       }
+      */
       gTimeUTC.textContent = `${source} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loading...)`;
       gTimeUTC.style.backgroundColor = '#ffff00'
-      document.getElementById("pmlegend").style.visibility = "collapse";
-      document.getElementById("o3legend").style.visibility = "collapse";
 
       // Construct layer paths
       // if CORS enabled
@@ -758,17 +748,20 @@ body {font-family: Verdana, sans-serif;}
         gcurl = `${urlroot}/goes/PM25/${gyear}/${gmon}/${gday}/${ghour}/pm25_gwr_aod_exp50_${gyear}${gmon}${gday}${ghour}_dnn.geojson`;
         spc = "PM25"
         unit = "micrograms/m<sup>3</sup>"
-        document.getElementById("pmlegend").style.visibility = "visible";
+        map.removeControl(o3legend);
+        pmlegend.addTo(map);
       } else if (source == "AirFuse-O3") {
         gcurl = `${urlroot}/fusion/O3/${gyear}/${gmon}/${gday}/${ghour}/Fusion_O3_NAQFC_airnow_${gyear}-${gmon}-${gday}T${ghour}Z.geojson`;
         spc = "O3"
         unit = "ppb"
-        document.getElementById("o3legend").style.visibility = "visible";
+        map.removeControl(pmlegend);
+        o3legend.addTo(map);
       } else {
         gcurl = `${urlroot}/fusion/PM25/${gyear}/${gmon}/${gday}/${ghour}/Fusion_PM25_NAQFC_${gyear}-${gmon}-${gday}T${ghour}Z.geojson`;
         spc = "PM25"
         unit = "micrograms/m<sup>3</sup>"
-        document.getElementById("pmlegend").style.visibility = "visible";
+        map.removeControl(o3legend);
+        pmlegend.addTo(map);
       };
       // Get layer and load with styler
       gfpromise = fetch(gcurl).then(function(response) {
@@ -829,7 +822,6 @@ body {font-family: Verdana, sans-serif;}
 		lat = parseFloat(document.getElementById('lat').value);
 		zval = parseInt(document.getElementById('zoomto').value);
 		map.setView([lat, lon], zval);
-		var legend = L.control({position: 'bottomright'});
 	}
 	function findGetParameter(parameterName) {
 		var result = null, tmp = [];
@@ -898,36 +890,11 @@ body {font-family: Verdana, sans-serif;}
 		document.execCommand("copy");
 		document.body.removeChild(tempTextarea);
 		// console.log(url);
-	}
+	};
   </script>
 </head>
 <body onload="javascript:setcalmonths();makecal();loadOpts();">
 <h1>Prototype Geostationary Satellite and Fusion Viewer</h1>
-<div style="display: inline;">
-  <table style="border: 1px solid black;"><tr id="pmlegend" style="visibility: visible;">
-    <td style="background-color: #ffffff;">PM.5 micrograms/m**3:</td>
-    <td style="background-color: #80808074;">&lt;-5.0</td>
-    <td style="background-color: #00960074;">-5 to 10</td>
-    <td style="background-color: #99cc0074;">10 to 20</td>
-    <td style="background-color: #ffff9974;">20 to 30</td>
-    <td style="background-color: #ffff0074;">30 to 50</td>
-    <td style="background-color: #ffcc0074;">50 to 70</td>
-    <td style="background-color: #f7990074;">70 to 90</td>
-    <td style="background-color: #ff000074;">90 to 120</td>
-    <td style="background-color: #d6009374;">120 to 500.4</td>
-    <td style="background-color: #00000074;"><font color="white">&gt 500.4</font></td>
-  </tr><tr id="o3legend" style="visibility: visible;">
-    <td style="background-color: #ffffff">Ozone ppb:</td>
-    <td style="background-color: #80808074;">&lt;-5.0</td>
-    <td style="background-color: #00fe0074;">-5 to 60</td>
-    <td style="background-color: #fefe8074;">60 to 80</td>
-    <td style="background-color: #fefe0074;">80 to 100</td>
-    <td style="background-color: #fbbe4374;">100 to 112</td>
-    <td style="background-color: #fe800074;">112 to 125</td>
-    <td style="background-color: #fe000074;">125 to 1000</td>
-    <td style="background-color: #00000074;"><font color="white">&gt 1000</font></td>
-  </tr></table>
-</div>
 <div>
   <div style="display: float;" id="outercontainer">
     <div id="container">
@@ -951,7 +918,7 @@ body {font-family: Verdana, sans-serif;}
   <option value="AirFuse-PM25">AirFuse-PM25</option>
   <option value="GOES-PM25">GOES-PM25</option>
   <option value="AirFuse-O3">AirFuse-O3</option>
-  <option value="none">None</option>
+  <!-- <option value="none">None</option> -->
 </select>
 <label for="airnow">Show AirNow:</label>
 <input type="checkbox" id="airnow">
@@ -984,14 +951,88 @@ var airnowpane = map.createPane('airnow');
 var mapGroup = new L.LayerGroup();
 var obsGroup = new L.LayerGroup();
 var obsCache = {};
+var pmedges = [-5., 10, 20, 30, 50, 70, 90, 120, 500.4]
+var pmcolors = [
+  '#808080', '#009600', '#99cc00', '#ffff99', '#ffff00', '#ffcc00', '#f79900',
+  '#ff0000', '#d60093', '#000000'
+];
+var o3edges = [-5., 60, 80, 100, 112, 125, 1000]
+var o3colors = [
+  '#808080', '#00fe00', '#fefe80', '#fefe00', '#fbbe43', '#fe8000', '#fe0000',
+  '#000000'
+];
+
 obsCache["ozone"] = {};
 obsCache["pm25"] = {};
 mapGroup.addTo(map);
 obsGroup.addTo(map);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+var pmlegend = L.control({position: 'bottomright'});
+pmlegend.onAdd = function (map) {
+  var div = L.DomUtil.create('div', 'pmlegend');
+  div.style.backgroundColor = '#ffffff'
+  div.style.font = 'Arial black'
+  labels = ['<table>', '<th style="font: black;">PM2.5 &mu;g/m**3</th>'];
+
+  for (var i = -1; i < pmedges.length; i++) {
+      if ((i + 1) == pmedges.length) {
+        tag = ('>' + pmedges[i])
+      } else if (i < 0) {
+        tag = ('>' + pmedges[0])
+      } else {
+        tag = (pmedges[i] + ' to ' + pmedges[i + 1])
+      }
+      div.innerHTML += 
+      labels.push(
+          '<tr><td class="circle" style="background:' + pmcolors[i + 1] + '74;">'
+          + tag
+          + '</td></tr>'
+      );
+
+  }
+  labels.push('</table>')
+  div.innerHTML = labels.join('');
+  return div;
+};
+var o3legend = L.control({position: 'bottomright'});
+o3legend.onAdd = function (map) {
+  var div = L.DomUtil.create('div', 'o3legend');
+  div.style.backgroundColor = '#ffffff'
+  div.style.font = 'Arial black'
+  labels = ['<table>', '<th style="font: black;">Ozone ppb</th>'];
+
+  for (var i = -1; i < o3edges.length; i++) {
+      if ((i + 1) == o3edges.length) {
+        tag = ('>' + o3edges[i])
+      } else if (i < 0) {
+        tag = ('>' + o3edges[0])
+      } else {
+        tag = (o3edges[i] + ' to ' + o3edges[i + 1])
+      }
+      div.innerHTML += 
+      labels.push(
+          '<tr><td class="circle" style="background:' + o3colors[i + 1] + '74;">'
+          + tag
+          + '</td></tr>'
+      );
+
+  }
+  labels.push('</table>')
+  div.innerHTML = labels.join('');
+  return div;
+};
+var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
+var baseMaps = {
+  "OpenStreetMap": osm,
+};
+var overlayMaps = {
+  "Contour": mapGroup,
+  "Monitors": obsGroup,
+};
+var layerControl = L.control.layers({}, overlayMaps).addTo(map);
 firstLoad();
 </script>
 
