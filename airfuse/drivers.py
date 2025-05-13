@@ -16,7 +16,7 @@ import warnings
 def fuse(
     obssource, species, startdate, model, bbox=None, cv_only=False,
     outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
-    modvar=None, obsdf=None, **kwds
+    modvar=None, obsdf=None, format='csv', **kwds
 ):
     """
     Must accept all arguments from airfuse.parser.parse_args
@@ -55,7 +55,8 @@ def fuse(
         Optional, used to bypass typical observations acquisition process.
         Must have species column, x/y columns consistent with modvar, and a
         NAQFC or GEOSCF column from modvar
-
+    format : str
+        Default csv (easily readable by anyone); also supports netcdf (nc)
     kwds : mappable
         Other unknown keywords
 
@@ -80,7 +81,7 @@ def fuse(
     stem = (
         f'{outdir}/Fusion_{spctitle}_{model}_{obssource}_{date:%Y-%m-%dT%H}Z'
     )
-    outfmt = kwds.get("format", 'csv')
+    outfmt = format
     logpath = f'{stem}.log'
     cvpath = f'{stem}_CV.csv'
     fusepath = f'{stem}.{outfmt}'

@@ -188,15 +188,21 @@ def mpestats(df, refkey='obs'):
     sse = se.sum()
     sdf['skew'] = sdf['50%'] / sdf['mean']
     sdf['cov'] = sdf['std'] / sdf['mean']
-    sdf['r'] = df.corr()[refkey]
     sdf['mb'] = bias.mean().T
     sdf['me'] = bias.abs().mean().T
     sdf['rmse'] = se.mean()**.5
-    sdf['nmb'] = sdf['mb'] / om * 100
-    sdf['nme'] = sdf['me'] / om * 100
-    sdf['fmb'] = sdf['mb'] / (om + sdf['mean']) * 200
-    sdf['fme'] = sdf['me'] / (om + sdf['mean']) * 200
+    sdf['nmb'] = sdf['mb'] / om
+    sdf['nme'] = sdf['me'] / om
+    sdf['fmb'] = sdf['mb'] / (om + sdf['mean']) * 2
+    sdf['fme'] = sdf['me'] / (om + sdf['mean']) * 2
+    sdf['r'] = df.corr()[refkey]
     sdf['ioa'] = 1 - sse / ioaden
+    sdf['nmb%'] = sdf['nmb'] * 100
+    sdf['nme%'] = sdf['nme'] * 100
+    sdf['fmb%'] = sdf['fmb'] * 100
+    sdf['fme%'] = sdf['fme'] * 100
+    sdf['fme%'] = sdf['fme'] * 100
+    sdf['rmse%'] = sdf['rmse'] / om * 100
     sdf.index.name = 'key'
 
     return sdf

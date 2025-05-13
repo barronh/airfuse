@@ -19,7 +19,8 @@ import pandas as pd
 def pmfuse(
     startdate, model, bbox=None, cv_only=False,
     outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
-    modvar=None, andf=None, padf=None, exclude_stations=True, **kwds
+    modvar=None, andf=None, padf=None, exclude_stations=True, format='csv',
+    **kwds
 ):
     """
     Must accept all arguments from airfuse.parser.parse_args
@@ -59,7 +60,10 @@ def pmfuse(
         or GEOSCF column from modvar
     exclude_stations : bool
         If True, use excluded stations identified by the Fire And Smoke Map.
-        This exclusion is only relevant if fusion target hour is within 1d of now.
+        This exclusion is only relevant if fusion target hour is within 1d of
+        now.
+    format : str
+        Default csv (easily readable by anyone); also supports netcdf (nc)
     kwds : mappable
         Other unknown keywords
 
@@ -109,7 +113,7 @@ nearest obs.
     logpath = f'{stem}.log'
     pacvpath = f'{stem}_PurpleAir_CV.csv'
     ancvpath = f'{stem}_AirNow_CV.csv'
-    outfmt = kwds.get("format", 'csv')
+    outfmt = format
     fusepath = f'{stem}.{outfmt}'
     outpaths = {
         'outpath': fusepath, 'paevalpath': pacvpath, 'anevalpath': ancvpath,

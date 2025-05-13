@@ -1,5 +1,11 @@
 __all__ = ['get_mostrecent']
+__doc__ = """
+NASA Goddard Earth Observing System (GEOS) model Composition Forecast (CF)
+--------------------------------------------------------------------------
 
+This module provides functionality for retrieving GEOS-CF and presenting a
+format that AirFuse can work with.
+"""
 import logging
 logger = logging.getLogger(__name__)
 

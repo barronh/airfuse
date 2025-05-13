@@ -1,5 +1,11 @@
 __all__ = ['open_mostrecent', 'get_mostrecent', 'open_operational']
+__doc__ = """
+NOAA Air Quality Forecast Capability (NAQFC)
+--------------------------------------------
 
+This module provides functionality for retrieving NAQFC and presenting a
+format that AirFuse can work with.
+"""
 import logging
 logger = logging.getLogger(__name__)
 
@@ -50,14 +56,24 @@ def getpaths(date, key, service='fileServer'):
 
 def getgrid(key='LZQZ99_KWBP'):
     """
+    Arguments
+    ---------
     key : str
         NCEP code for forecast (e.g., LZQZ99_KWBP)
+
+    Returns
+    -------
+    gridds : xarray.Dataset
+        Grid with x/y/LambertConformal_Projection either from NCEI or from an
+        offline archive on github.
     """
     import os
     import xarray as xr
     import requests
 
     gridpath = f'{key}_GRID.nc'
+    gridkey = key.split('_')[-1]
+    assert gridkey == 'KWBP'
     if not os.path.exists(gridpath):
         # this is an arbitrary NDGD file with a known grid
         # it's grid is consistent with KWBP CONUS runs
@@ -75,7 +91,6 @@ def getgrid(key='LZQZ99_KWBP'):
             # retrieved from the thredds catalog. A copy has been added to
             # the repository for just such an occasion. In the future, this
             # may be changed to be the default method
-            gridkey = key.split('_')[-1]
             expath = (
                 'https://raw.githubusercontent.com/barronh/airfuse/main/grid/'
                 + f'{gridkey}_GRID.nc'
@@ -99,6 +114,7 @@ def addcrs(naqfcf):
         Must have a variable named LambertConformal_Projection whose
         attributes describe the Climate Forecasting Conventions definition
         of the projection
+
     Returns
     -------
     None

@@ -1,5 +1,11 @@
 __all__ = ['get_model']
+__doc__ = """
+Mod
+---
 
+This module provides functionality for retrieving NAQFC, GEOS-CF, and GOES
+model data in a format that AirFuse can work with.
+"""
 from .naqfc import get_mostrecent as get_naqfc
 from .geoscf import get_mostrecent as get_geoscf
 from .goes import get_goesgwr
@@ -8,6 +14,7 @@ from .constant import get_constant
 
 def get_model(date, key='o3', bbox=None, model='naqfc', verbose=0):
     """
+    Get a model object for date and key that is optionally restricted to bbox
     Arguments
     ---------
     date : datetime-like
@@ -15,9 +22,14 @@ def get_model(date, key='o3', bbox=None, model='naqfc', verbose=0):
     key : str
         Species (o3 or pm25) to retrieve from the model.
     bbox : list
-        swlon, swlat, nelon, nelat in decimal degrees
+        swlon, swlat, nelon, nelat in decimal degrees (only supported by naqfc)
     model : str
-        Which mdoel to get: naqfc, geoscf, goes (case insensitive)
+        Which model to get: naqfc, geoscf, goes (case insensitive)
+        - naqfc : NOAA Air Quality Forecast Capability
+        - geoscf : NASA Goddard Earth Observing System Composition Forecast
+        - goes : NOAA Geostationary Operational Environmental Satellites PM25
+                 estimated from geographic weighted regression and deep neural
+                 network correction.
     verbose : int
         Level of verbosity
 

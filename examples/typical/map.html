@@ -600,7 +600,7 @@ body {font-family: Verdana, sans-serif;}
 
       const aTimeUTC = document.getElementById("airnowz");
       const gTime = document.getElementById("maptime");
-      const aShow = document.getElementById("airnow");
+      const obsShow = document.getElementById("obs");
       const obs = [];
       obsGroup.clearLayers();
       // Convert string to date and get parts
@@ -617,12 +617,13 @@ body {font-family: Verdana, sans-serif;}
       sb = bbox.getSouth();
       nb = bbox.getNorth();
       otimestamp = `${gyear}-${gmon}-${gday}T${ghour}:00:00-0000`
-      if ( aShow.checked != true ) {
-        aTimeUTC.textContent = `AirNow disabled`;
+      obskey = obsShow.value
+      if ( obskey == "none" ) {
+        aTimeUTC.textContent = `Obs disabled`;
         aTimeUTC.style.backgroundColor = '#ffffff'
         return
       }
-      if ( source == "AirFuse-O3" ) {
+      if ( obskey == "airnow.ozone" ) {
         anspc = 'ozone'
         spclabel = 'O3'
         aqiObsStyle = aqiO3ObsStyle;
@@ -631,19 +632,39 @@ body {font-family: Verdana, sans-serif;}
         spclabel = 'PM25'
         aqiObsStyle = aqiPMObsStyle;
       }
-      aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loading...)`;
+      aTimeUTC.textContent = `${obskey} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loading...)`;
       aTimeUTC.style.backgroundColor = '#ffff00'
       rsigroot = "https://ofmpub.epa.gov/rsig/rsigserver?SERVICE=wcs&VERSION=1.0.0&REQUEST=GetCoverage&FORMAT=ascii"
       rsigtime = `&TIME=${gyear}-${gmon}-${gday}T${ghour}:00:00Z/${gyear}-${gmon}-${gday}T${ghour}:59:59Z`
-      obsurl = `${rsigroot}${rsigtime}&BBOX=-130,20,-60,60&COVERAGE=airnow.${anspc}&COMPRESS=0`;
+      // obskey = `airnow.${anspc}`
+      // obskey = "purpleair.pm25_corrected"
+      obsurl = `${rsigroot}${rsigtime}&BBOX=-130,20,-60,60&COVERAGE=${obskey}&COMPRESS=0`;
+      cols = {
+          "station": 5,
+          "val": 4
+      }
+      if (obskey == "purpleair.pm25_corrected" ) {
+          apikey = document.getElementById('pakey').value;
+          if ( apikey == "" ) {
+              error = "PurpleAir requires API key -- see bottom";
+              aTimeUTC.textContent = `${obskey} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (${error})`;
+              aTimeUTC.style.backgroundColor = '#ff0000'
+              return
+          }
+          obsurl = `${obsurl}&OUT_IN_FLAG=0&MAXIMUM_DIFFERENCE=5.000000&MAXIMUM_RATIO=0.700000&DEFAULT_HUMIDITY=50.000000&AGGREGATE=hourly&MINIMUM_AGGREGATION_COUNT_PERCENTAGE=75.000000&KEY=${apikey}`
+          cols = {
+              "station": 7,
+              "val": 6
+          }
+      }
       // Get layer and load with styler
       obsGroup.clearLayers();
       // console.log(anspc);
       // console.log(otimestamp);
       // console.log(Object.keys(obsCache[anspc]));
-      if ( otimestamp in obsCache[anspc] ) {
-        console.log(`Cached ${anspc} ${gdatestr}`);
-        gjLay = L.geoJSON(obsCache[anspc][otimestamp], {
+      if ( otimestamp in obsCache[obskey] ) {
+        console.log(`Cached ${obskey} ${gdatestr}`);
+        gjLay = L.geoJSON(obsCache[obskey][otimestamp], {
           pointToLayer: function (feature, latlng) {
             c = aqiObsStyle(feature);
             return L.circle(latlng, {radius: 1000, color: c, weight: 5, pane: airnowpane});
@@ -654,7 +675,7 @@ body {font-family: Verdana, sans-serif;}
         })
         obsGroup.clearLayers()
         obsGroup.addLayer(gjLay)
-        aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loaded)`;
+        aTimeUTC.textContent = `${obskey} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loaded)`;
         aTimeUTC.style.backgroundColor = '#00e400'
         return
       }
@@ -667,14 +688,14 @@ body {font-family: Verdana, sans-serif;}
         features = [];
         result.forEach( e => {
           if (isFinite(e[1])) {
-            e_val = parseFloat(e[4])
+            e_val = parseFloat(e[cols["val"]])
             // -9999 is missing; and AirNow assumes below -10, it is bad
             if (e_val > -10) {
             features.push(
               {
                 'type': 'Feature',
                 'properties': {
-                  'STATION': e[5], 'val': e_val,
+                  'STATION': e[cols["station"]], 'val': e_val,
                   'Timestamp': e[0]
                 },
                 'geometry': {
@@ -687,7 +708,7 @@ body {font-family: Verdana, sans-serif;}
         })
         return {'type': 'FeatureCollection', 'features': features};
       }).then(res => {
-        obsCache[anspc][res.features[0].properties.Timestamp] = res
+        obsCache[obskey][res.features[0].properties.Timestamp] = res
         if (anspc == "pm25") {
           unit = "micrograms/m<sup>3</sup>";
         } else {
@@ -706,11 +727,11 @@ body {font-family: Verdana, sans-serif;}
         obsGroup.clearLayers()
         obsGroup.addLayer(gjLay)
         gjLay.bringToFront()
-        aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loaded)`;
+        aTimeUTC.textContent = `${obskey} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (loaded)`;
         aTimeUTC.style.backgroundColor = '#00e400'
       });
       fpromise.catch((error) => {
-        aTimeUTC.textContent = `AirNow ${spclabel} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (${error})`;
+        aTimeUTC.textContent = `${obskey} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (${error})`;
         aTimeUTC.style.backgroundColor = '#ff0000'
       });
     };
@@ -813,7 +834,7 @@ body {font-family: Verdana, sans-serif;}
       document.getElementById('maptime').value = now.toISOString().slice(0,14) + '00';
       document.getElementById("maptime").addEventListener("change", (event) => {loadMap(); loadObs(); loadEval();});
       document.getElementById("mapsource").addEventListener("change", (event) => {loadMap(); loadObs(); loadEval(); makecal(); resetEvalIndex();});
-      document.getElementById("airnow").addEventListener("change", (event) => {loadMap(); loadObs(); loadEval();});
+      document.getElementById("obs").addEventListener("change", (event) => {loadMap(); loadObs(); loadEval();});
       //document.getElementById("cvkey").addEventListener("change", (event) => {loadEval();});
       loadOpts();
     };
@@ -846,11 +867,10 @@ body {font-family: Verdana, sans-serif;}
 		if (layer != null) {
 			document.getElementById('mapsource').value = layer;
 		}
-		anv = findGetParameter("airnow");
-		if ((anv == 1) || (anv == "1")) {
-			document.getElementById('airnow').checked = true;
-		} else if ((anv == 0) || (anv == "0")) {
-			document.getElementById('airnow').checked = false;
+		obsv = findGetParameter("obs");
+        
+		if (layer != null) {
+			document.getElementById('obs').value = obsv;
 		}
 		lon = findGetParameter("lon");
 		if (lon != null) {
@@ -876,12 +896,8 @@ body {font-family: Verdana, sans-serif;}
 		lstdate = new Date(date)
 		utcdate = lstdate.toISOString().slice(0, 14) + '00Z';
 		layer = document.getElementById('mapsource').value
-		if (document.getElementById('airnow').checked == true) {
-			airnow = 1;
-		} else {
-			airnow = 0;
-		}
-		url = url + `lon=${lon}&lat=${lat}&zoom=${zoom}&time=${utcdate}&layer=${layer}&airnow=${airnow}`
+		obs = document.getElementById('obs').value
+		url = url + `lon=${lon}&lat=${lat}&zoom=${zoom}&time=${utcdate}&layer=${layer}&obs=${obs}`
 		const tempTextarea = document.createElement("textarea");
 		document.body.appendChild(tempTextarea);
 		document.body.appendChild(tempTextarea);
@@ -903,8 +919,8 @@ body {font-family: Verdana, sans-serif;}
   </div>
 </div>
 
+<form>
 <label for="maptime">Local Time:</label>
-
 <button onclick="incminutes(-1440);" type="button" id="prevd">&lt;&lt;</button>
 <button onclick="incminutes(-60);" type="button" id="prev">&lt;</button>
 <input type="datetime-local" id="maptime"
@@ -913,23 +929,30 @@ body {font-family: Verdana, sans-serif;}
 />
 <button onclick="incminutes(60);" type="button" id="next">&gt;</button>
 <button onclick="incminutes(1440);" type="button" id="nextd">&gt;&gt;</button>
-<label for="mapsource">Choose a product:</label>
+<label for="zoomto">Zoom to:</label>
+<input id="lat" min="20" max="70" value="40.0" size="2em" onchange="javascript:zoomit();"/>
+<input id="lon" min="-125" max="-55" value="-97.0" size="3em" onchange="javascript:zoomit();"/>
+<input id="zoomto" min="4" max="19" value="4" type="hidden"/>
+<br/>
+<label for="mapsource">Layer:</label>
 <select name="mapsource" id="mapsource" >
   <option value="AirFuse-PM25">AirFuse-PM25</option>
   <option value="GOES-PM25">GOES-PM25</option>
   <option value="AirFuse-O3">AirFuse-O3</option>
   <!-- <option value="none">None</option> -->
 </select>
-<label for="airnow">Show AirNow:</label>
-<input type="checkbox" id="airnow">
-<br/>
-<label for="zoomto">Zoom to:</label>
-<input id="lat" min="20" max="70" value="40.0" size="2em" onchange="javascript:zoomit();"/>
-<input id="lon" min="-125" max="-55" value="-97.0" size="3em" onchange="javascript:zoomit();"/>
-<input id="zoomto" min="4" max="19" value="4" type="hidden"/>
-
+<label for="obs">Obs:</label>
+<select name="obs" id="obs" >
+  <option value="none">None</option>
+  <option value="airnow.pm25">AirNow-PM25</option>
+  <option value="airnow.ozone">AirNow-ozone</option>
+  <option value="purpleair.pm25_corrected">PurpleAir-PM25</option>
+  <!-- <option value="none">None</option> -->
+</select>
+<label for="pakey">PurpleAir KEY:</label>
+<input type="password" id="pakey"></>
 <button onclick="javascript:shareURL();" type="button">Copy URL</button><input type="hidden" id="urlshare" size="0.01em"></input>
-
+</form>
 <div id="maptimez"></div>
 <div id="airnowz"></div>
 <h2>10-Fold Cross Validation Result</h2>
@@ -962,8 +985,9 @@ var o3colors = [
   '#000000'
 ];
 
-obsCache["ozone"] = {};
-obsCache["pm25"] = {};
+obsCache["airnow.ozone"] = {};
+obsCache["airnow.pm25"] = {};
+obsCache["purpleair.pm25_corrected"] = {};
 mapGroup.addTo(map);
 obsGroup.addTo(map);
 
@@ -974,7 +998,7 @@ pmlegend.onAdd = function (map) {
   div.style.font = 'Arial black'
   labels = ['<table>', '<th style="font: black;">PM2.5 &mu;g/m**3</th>'];
 
-  for (var i = -1; i < pmedges.length; i++) {
+  for (var i = pmedges.length - 1; i >= -1 ; i--) {
       if ((i + 1) == pmedges.length) {
         tag = ('>' + pmedges[i])
       } else if (i < 0) {
@@ -1001,7 +1025,7 @@ o3legend.onAdd = function (map) {
   div.style.font = 'Arial black'
   labels = ['<table>', '<th style="font: black;">Ozone ppb</th>'];
 
-  for (var i = -1; i < o3edges.length; i++) {
+  for (var i = o3edges.length -1; i >= -1 ; i--) {
       if ((i + 1) == o3edges.length) {
         tag = ('>' + o3edges[i])
       } else if (i < 0) {
@@ -1035,14 +1059,14 @@ var overlayMaps = {
 var layerControl = L.control.layers({}, overlayMaps).addTo(map);
 firstLoad();
 </script>
-
-<label>Choose Validation Key:</label>
+<form>
+<label for="cvidx">Choose Validation Key:</label>
 <select id="cvidx" onchange="javascript:loadEval()"></select>
 <h2 id="caltitle">Data Calendar</h2>
 <select id="yearmonth" onchange="javascript:makecal()">
 </select>
 <button id="refresh" onclick="javascript:makecal()">go</button>
-
+</form>
 <div class="month">
 <ul>
   <li class="prev" onclick="javascript:prevmonth()">&#10094;</li>
@@ -1144,6 +1168,5 @@ The new data layers at high temporal and spatial resolutions in the USEPA's AirN
     Zhang, H. and Kondragunta, S.: Daily and Hourly Surface PM2.5 Estimation From Satellite AOD, Earth Space Sci, 8, doi: <a href="https://doi.org/10.1029/2020EA001599">10.1029/2020EA001599</a>, 2021.
   </li>
 </ol>
-
 </body>
 <html>

@@ -1,3 +1,10 @@
+__doc__ = """
+NOAA Geostationary Operational Environmental Satellite PM25
+-----------------------------------------------------------
+
+This module provides functionality for retrieving GOES-PM25 and presenting a
+format that AirFuse can work with.
+"""
 import numpy as np
 import pyproj
 import logging
@@ -75,7 +82,7 @@ def get_goesgwr(
     version='1.4.0'
 ):
     """
-    Aquire GOES data as a model (i.e., not as an observations).
+    Acquire GOES data as a model (i.e., not as an observations).
 
     Arguments
     ---------

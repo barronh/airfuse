@@ -1,4 +1,12 @@
 __all__ = ['get_constant']
+__doc__ = """
+Constant
+--------
+
+This module provides functionality for retrieving a constant field of the same
+size and shape as the NAQFC model. This is useful for testing and backup
+functionality in the event that the NAQFC is not available.
+"""
 
 
 def get_constant(
