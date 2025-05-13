@@ -5,9 +5,12 @@ __pycache__/
 
 # C extensions
 *.so
+*.nc
 
 # Distribution / packaging
-examples/typical/
+20??/
+examples/typical/????/
+examples/simple/????/
 .Python
 build/
 develop-eggs/

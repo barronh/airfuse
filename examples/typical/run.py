@@ -1,3 +1,21 @@
+"""
+Apply AirFuse Over US
+=====================
+
+This script can be called to fuse AirNow and PurpleAir with NOAA's NAQFC
+model to create a best estimate of pm25 over the US. Then, create GeoJson
+and png files that can be used with leaflet to create an operational server.
+The map.html file is set to point to EPA's AWS s3 bucket of live results,
+but can be changed to point to your own public data (on AWS or any https).
+
+Save the code as run.py and call the script with the bash commands:
+.. code::bash
+
+    # source airfuse/venv/bin/activate
+    python run.py -j 4 o3
+    python run.py -j 4 pm25
+
+"""
 from airfuse.drivers import fuse
 from airfuse.pm import pmfuse
 from airfuse.util import to_geojson, to_webpng

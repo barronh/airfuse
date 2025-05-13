@@ -38,6 +38,7 @@ cvdf = pd.read_csv(outpaths['evalpath'])
 statdf = mpestats(cvdf[['ozone', 'CV_aVNA']], refkey='ozone')
 print(statdf.T.round(2).to_string())
 
+# %%
 # Plot Cross-Validation
 fig, ax = plt.subplots()
 opts = dict(mincnt=1, gridsize=40)
@@ -48,6 +49,7 @@ label = statdf.loc['CV_aVNA', ['nmb%', 'r', 'rmse%']].T.round(2).to_string()
 ax.text(0.05, 0.975, label, va='top', ha='left', font='monospace', transform=ax.transAxes)
 fig.savefig(outpaths['evalpath'] + '.png')
 
+# %%
 # Plot Map
 opts = dict(cmap=style.ant_1ho3_cmap, norm=style.ant_1ho3_norm)
 fig, axx = plt.subplots(1, 2, figsize=(12, 4))
