@@ -2,7 +2,8 @@ __all__ = ['pair_purpleair']
 
 
 def pair_purpleair(
-    bdate, bbox, proj, var, spc, api_key=None, exclude_stations=None, dust_ev_filt=False
+    bdate, bbox, proj, var, spc, api_key=None, exclude_stations=None,
+    dust_ev_filt=False
 ):
     """
     Arguments
@@ -76,38 +77,50 @@ def pair_purpleair(
             unit_keys=False, parse_dates=True
         )
 
-        # Merge PM 0.3um and PM5um counts and delete rows with incomplete data between the two fields
-        pm03df.loc[:,'new_index'] = pm03df['STATION'].astype(str)+'_'+pm03df['Timestamp'].astype(str)
-        pm5df.loc[:,'new_index'] = pm5df['STATION'].astype(str)+'_'+pm5df['Timestamp'].astype(str)
-
+        # Merge PM 0.3um and PM5um counts and delete rows
+        # with incomplete data between the two fields
+        pm03df['new_index'] = (
+            pm03df['STATION'].astype(str) + '_'
+            + pm03df['Timestamp'].astype(str)
+        )
+        pm5df['new_index'] = (
+            pm5df['STATION'].astype(str) + '_' + pm5df['Timestamp'].astype(str)
+        )
         pm03df.set_index('new_index', inplace=True)
         pm5df.set_index('new_index', inplace=True)
 
         pm03df = pm03df[['0_3_um_count_hourly']]
         pm5df = pm5df[['5_um_count_hourly']]
-        padf_dust = pd.merge(pm03df, pm5df, how='inner',on='new_index')
+        padf_dust = pd.merge(pm03df, pm5df, how='inner', on='new_index')
 
         # Calculate PM 0.3um counts/PM 5um counts (dust criteria) ratio
-        padf_dust = padf_dust.astype({'0_3_um_count_hourly':float,'5_um_count_hourly':float})
-        padf_dust.loc[:,'0.3um ct/5um ct'] = padf_dust['0_3_um_count_hourly']/padf_dust['5_um_count_hourly']
+        padf_dust = padf_dust.astype({'0_3_um_count_hourly': float,
+                                      '5_um_count_hourly': float})
+        padf_dust['0.3um ct/5um ct'] = (
+            padf_dust['0_3_um_count_hourly'] / padf_dust['5_um_count_hourly']
+        )
         padf_dust.replace([np.inf, -np.inf], np.nan, inplace=True)
-        
-        # Aggregate up to the hour for dust criteria ratio
-        padf_dust.loc[:,'STATION-TIME'] = padf_dust.index
-        padf_dust['STATION-TIME'] = padf_dust['STATION-TIME'].str[:-11]
-        padf_dust = padf_dust[['STATION-TIME','0.3um ct/5um ct']]
 
-        padf_dust = padf_dust.groupby('STATION-TIME',as_index=False).mean()
-        padf_dust[['STATION','Timestamp(UTC) Hourly']] = padf_dust['STATION-TIME'].str.split('_',expand=True)
+        # Aggregate up to the hour for dust criteria ratio
+        padf_dust.loc[:, 'STATION-TIME'] = padf_dust.index
+        padf_dust['STATION-TIME'] = padf_dust['STATION-TIME'].str[:-11]
+        padf_dust = padf_dust[['STATION-TIME', '0.3um ct/5um ct']]
+
+        padf_dust = padf_dust.groupby('STATION-TIME',
+                                      as_index=False).mean()
+        padf_dust[['STATION', 'Timestamp(UTC) Hourly']] = (
+            padf_dust['STATION-TIME'].str.split('_', expand=True)
+        )
         padf_dust['STATION'] = padf_dust['STATION'].astype(np.int64)
 
-        # Filter hourly pm25 for non-dust event measurements 
+        # Filter hourly pm25 for non-dust event measurements
         padf_dust = padf_dust[padf_dust['0.3um ct/5um ct'] > 190]
 
         padf_aft = pd.merge(padf, padf_dust, how='inner', on='STATION')
         removed_sta = len(padf) - len(padf_aft)
-        print('%s monitors removed due to dust event' %removed_sta)
-        padf_aft.drop(['Timestamp(UTC) Hourly','0.3um ct/5um ct'],axis=1,inplace=True)
+        print('%s monitors removed due to dust event' % removed_sta)
+        padf_aft.drop(['Timestamp(UTC) Hourly', '0.3um ct/5um ct'],
+                      axis=1, inplace=True)
         padf = padf_aft
 
     # Identify PurpleAir records to exclude

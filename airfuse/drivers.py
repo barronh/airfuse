@@ -14,9 +14,9 @@ import warnings
 
 
 def fuse(
-    obssource, species, startdate, model, bbox=None, dust_ev_filt=False, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
-    modvar=None, obsdf=None, format='csv', **kwds
+    obssource, species, startdate, model, bbox=None, dust_ev_filt=False,
+    cv_only=False, outdir=None, overwrite=False, api_key=None, verbose=0,
+    njobs=None, modvar=None, obsdf=None, format='csv', **kwds
 ):
     """
     Must accept all arguments from airfuse.parser.parse_args
@@ -120,9 +120,9 @@ def fuse(
         elif obssource == 'aqs':
             obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
         elif obssource == 'purpleair':
-            obsdf = pair_purpleair(
-            date, bbox, proj, modvar, obskey, api_key=api_key, dust_ev_filt=dust_ev_filt
-            )
+            obsdf = pair_purpleair(date, bbox, proj, modvar,
+                                   obskey, api_key=api_key,
+                                   dust_ev_filt=dust_ev_filt)
 
     logging.info(f'{obssource} N={obsdf.shape[0]}')
     vardescs = {

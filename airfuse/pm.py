@@ -180,10 +180,10 @@ nearest obs.
         )
 
     if padf is None:
-        padf = pair_purpleair(
-            date, bbox, proj, modvar, obskey, api_key=api_key, dust_ev_filt=dust_ev_filt,
-            exclude_stations=exclude_stations
-        )
+        padf = pair_purpleair(date, bbox, proj, modvar, obskey,
+                              api_key=api_key, dust_ev_filt=dust_ev_filt,
+                              exclude_stations=exclude_stations)
+
     logging.info(f'PurpleAir N={padf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'PurpleAir N={padf.shape[0]}'])
     ann = andf.shape[0]
