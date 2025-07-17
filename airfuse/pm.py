@@ -17,7 +17,7 @@ import pandas as pd
 
 
 def pmfuse(
-    startdate, model, bbox=None, cv_only=False,
+    startdate, model, bbox=None, dust_ev_filt=False, cv_only=False,
     outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
     modvar=None, andf=None, padf=None, exclude_stations=True, format='csv',
     **kwds
@@ -35,6 +35,8 @@ def pmfuse(
         wlon, slat, elon, nlat in decimal degrees east and north
         lon >= -180 and lon <= 180
         lat >= -90 and lat <= 90
+    dust_ev_filt: bool
+        If True, this removes sites where a dust event is likely
     cv_only : bool
         Only perform the cross-validation
     outdir : str or None
@@ -178,10 +180,10 @@ nearest obs.
         )
 
     if padf is None:
-        padf = pair_purpleair(
-            date, bbox, proj, modvar, obskey, api_key=api_key,
-            exclude_stations=exclude_stations
-        )
+        padf = pair_purpleair(date, bbox, proj, modvar, obskey,
+                              api_key=api_key, dust_ev_filt=dust_ev_filt,
+                              exclude_stations=exclude_stations)
+
     logging.info(f'PurpleAir N={padf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'PurpleAir N={padf.shape[0]}'])
     ann = andf.shape[0]

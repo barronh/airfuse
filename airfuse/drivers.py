@@ -14,9 +14,9 @@ import warnings
 
 
 def fuse(
-    obssource, species, startdate, model, bbox=None, cv_only=False,
-    outdir=None, overwrite=False, api_key=None, verbose=0, njobs=None,
-    modvar=None, obsdf=None, format='csv', **kwds
+    obssource, species, startdate, model, bbox=None, dust_ev_filt=False,
+    cv_only=False, outdir=None, overwrite=False, api_key=None, verbose=0,
+    njobs=None, modvar=None, obsdf=None, format='csv', **kwds
 ):
     """
     Must accept all arguments from airfuse.parser.parse_args
@@ -36,6 +36,8 @@ def fuse(
         wlon, slat, elon, nlat in decimal degrees east and north
         lon >= -180 and lon <= 180
         lat >= -90 and lat <= 90
+    dust_ev_filt: bool
+        If True, this removes sites where a dust event is likely
     cv_only : bool
         Only perform the cross-validation
     outdir : str or None
@@ -118,9 +120,10 @@ def fuse(
         elif obssource == 'aqs':
             obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
         elif obssource == 'purpleair':
-            obsdf = pair_purpleair(
-                date, bbox, proj, modvar, obskey, api_key=api_key
-            )
+            obsdf = pair_purpleair(date, bbox, proj, modvar,
+                                   obskey, api_key=api_key,
+                                   dust_ev_filt=dust_ev_filt)
+
     logging.info(f'{obssource} N={obsdf.shape[0]}')
     vardescs = {
       'NAQFC': 'NOAA Forecast (NAQFC)',
