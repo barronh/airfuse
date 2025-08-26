@@ -22,7 +22,7 @@ def get_dummyvar():
     return var
 
 
-def _test_srcspc(spc, src):
+def _test_rsigsrcspc(spc, src):
     import pyproj
     import numpy as np
     from ..obs.epa import pair_rsig, pair_airnowrsig, pair_aqsrsig
@@ -42,15 +42,16 @@ def _test_srcspc(spc, src):
 
 
 def test_pm():
-    _test_srcspc('pm25', 'airnow')
-    _test_srcspc('pm25', 'aqs')
+    _test_rsigsrcspc('pm25', 'airnow')
+    _test_rsigsrcspc('pm25', 'aqs')
 
 
 def test_ozone():
-    _test_srcspc('ozone', 'airnow')
-    _test_srcspc('ozone', 'aqs')
+    _test_rsigsrcspc('ozone', 'airnow')
+    _test_rsigsrcspc('ozone', 'aqs')
 
 
+@pytest.mark.xfail(strict=False)
 def test_airnowapi():
     from ..obs import epa
     import pyproj
@@ -67,6 +68,7 @@ def test_airnowapi():
     assert (obsdf2.shape[0] >= obsdf0.shape[0])
 
 
+@pytest.mark.xfail(strict=False)
 def test_aqsapi():
     from ..obs import epa
     import pyproj

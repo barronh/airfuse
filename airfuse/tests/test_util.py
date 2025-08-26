@@ -17,7 +17,7 @@ def test_mpestats():
     assert mpedf.loc['mod', 'me'] > 0
 
 
-@pytest.mark.xfail(strict=False, reason='Requires matplotlib')
+@pytest.mark.xfail(strict=False, reason='Requires geopandas')
 def test_to_geopandas():
     import numpy as np
     from ..util import to_geopandas
@@ -35,8 +35,9 @@ def test_to_geopandas():
     )
     assert (norm.boundaries[1:-1] == edges).all()
     assert gdf.shape[0] == Z.size
+    ustyles = gdf['OGR_STYLE'].unique()
     for c in colors:
-        assert f'BRUSH(fc:{c})' in gdf['OGR_STYLE'].values
+        assert f'BRUSH(fc:{c})' in ustyles
 
 
 @pytest.mark.xfail(strict=False, reason='Requires geopandas')

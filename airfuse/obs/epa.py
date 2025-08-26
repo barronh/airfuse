@@ -45,17 +45,31 @@ def pair_airnow(bdate, bbox, proj, var, spc, api_key=None, verbose=1):
     bdate = pd.to_datetime(bdate)
     dt = bdate - pd.to_datetime('now', utc=True)
     twodaysago = (-2 * 24 * 3600)
+    pkwds = dict(
+        bdate=bdate, bbox=bbox, proj=proj, var=var, spc=spc
+    )
     if dt.total_seconds() < twodaysago:
         if verbose > 0:
             logger.info('pair_airnow using AirNow File')
-        return pair_airnowaqobsfile(bdate, bbox, proj, var, spc)
+        odf = pair_airnowaqobsfile(**pkwds)
     else:
         if verbose > 0:
             logger.info('pair_airnow using AirNow API')
-        return pair_airnowapi(bdate, bbox, proj, var, spc, api_key=api_key)
+        try:
+            odf = pair_airnowapi(api_key=api_key, verbose=verbose, **pkwds)
+        except KeyError:
+            logger.warning(
+                'pair_airnow using RSIG API because api_key is None and'
+                ' ~/.airnowkey does not exist'
+            )
+            odf = pair_airnowrsig(**pkwds)
+
+    return odf
 
 
-def pair_aqs(bdate, bbox, proj, var, spc, verbose=1):
+def pair_aqs(
+    bdate, bbox, proj, var, spc, verbose=1, api_user=None, api_key=None
+):
     """
     Currently calls pair_aqsrsig
     Arguments
@@ -88,7 +102,18 @@ def pair_aqs(bdate, bbox, proj, var, spc, verbose=1):
         was preprocessed to average observations within half-sized grid cells
         before pairing with the model.
     """
-    return pair_aqsrsig(bdate, bbox, proj, var, spc)
+    pkwds = dict(
+        bdate=bdate, bbox=bbox, proj=proj, var=var, spc=spc
+    )
+    try:
+        odf = pair_aqsapi(api_user=api_user, api_key=api_key, **pkwds)
+    except KeyError:
+        logger.warn(
+            'pair_aqs using RSIG API because api_user or api_key are None'
+            ' and ~/.aqskey does not exist'
+        )
+        odf = pair_aqsrsig(**pkwds)
+    return odf
 
 
 def pair_airnowapi(
@@ -141,7 +166,7 @@ def pair_airnowapi(
             api_key = keypath
         else:
             msgtxt = f'api_key must be provided or available at {keypath}'
-            raise ValueError(msgtxt)
+            raise KeyError(msgtxt)
     if os.path.exists(api_key):
         api_key = open(api_key).read().strip()
 

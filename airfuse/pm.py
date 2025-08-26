@@ -1,7 +1,7 @@
 __all__ = ['pmfuse']
 
 from .mod import get_model
-from .obs import pair_airnow, pair_purpleair
+from .obs import pair
 from .models import applyfusion, get_fusions
 from .ensemble import distweight
 from .util import df2nc
@@ -156,7 +156,7 @@ nearest obs.
     logging.info(proj.srs)
 
     if andf is None:
-        andf = pair_airnow(date, bbox, proj, modvar, obskey)
+        andf = pair(date, bbox, proj, modvar, obskey, 'airnow')
     logging.info(f'AirNow N={andf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'AirNow N={andf.shape[0]}'])
 
@@ -180,9 +180,10 @@ nearest obs.
         )
 
     if padf is None:
-        padf = pair_purpleair(date, bbox, proj, modvar, obskey,
-                              api_key=api_key, dust_ev_filt=dust_ev_filt,
-                              exclude_stations=exclude_stations)
+        padf = pair(
+            date, bbox, proj, modvar, obskey, 'purpleair', api_key=api_key,
+            dust_ev_filt=dust_ev_filt, exclude_stations=exclude_stations
+        )
 
     logging.info(f'PurpleAir N={padf.shape[0]}')
     fdesc = '\n'.join([fdesc, f'PurpleAir N={padf.shape[0]}'])

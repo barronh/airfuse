@@ -1,7 +1,7 @@
 __all__ = ['fuse']
 
 from .mod import get_model
-from .obs import pair_airnow, pair_aqs, pair_purpleair
+from .obs import pair
 from .models import applyfusion, get_fusions
 from .util import df2nc
 import time
@@ -114,15 +114,10 @@ def fuse(
     obskey = {'o3': 'ozone', 'pm25': 'pm25'}[species]
     if obsdf is None:
         if obssource == 'airnow':
-            obsdf = pair_airnow(
-                date, bbox, proj, modvar, obskey, api_key=api_key
-            )
-        elif obssource == 'aqs':
-            obsdf = pair_aqs(date, bbox, proj, modvar, obskey)
+            pkwds = dict(api_key=api_key)
         elif obssource == 'purpleair':
-            obsdf = pair_purpleair(date, bbox, proj, modvar,
-                                   obskey, api_key=api_key,
-                                   dust_ev_filt=dust_ev_filt)
+            pkwds = dict(api_key=api_key, dust_ev_filt=dust_ev_filt)
+        obsdf = pair(date, bbox, proj, modvar, obskey, obssource, **pkwds)
 
     logging.info(f'{obssource} N={obsdf.shape[0]}')
     vardescs = {
