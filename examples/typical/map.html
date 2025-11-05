@@ -646,7 +646,7 @@ body {font-family: Verdana, sans-serif;}
       if (obskey == "purpleair.pm25_corrected" ) {
           apikey = document.getElementById('pakey').value;
           if ( apikey == "" ) {
-              error = "PurpleAir requires API key -- see bottom";
+              error = "PurpleAir requires API key -- fill in";
               aTimeUTC.textContent = `${obskey} UTC Time: ${gyear}-${gmon}-${gday}T${ghour}:00:00+0000 (${error})`;
               aTimeUTC.style.backgroundColor = '#ff0000'
               return
@@ -1063,6 +1063,8 @@ firstLoad();
 <label for="cvidx">Choose Validation Key:</label>
 <select id="cvidx" onchange="javascript:loadEval()"></select>
 <h2 id="caltitle">Data Calendar</h2>
+Each day should have 24 complete surfaces, but as a pilot some hours are not complete.
+The calendar highlights which days have fewer than 24 (<span style="background-color: yellow;">yellow</span>&lt;24 and <span style="background-color: red;">red</span>&lt;12)<br/>
 <select id="yearmonth" onchange="javascript:makecal()">
 </select>
 <button id="refresh" onclick="javascript:makecal()">go</button>
@@ -1167,6 +1169,15 @@ The new data layers at high temporal and spatial resolutions in the USEPA's AirN
   <li>
     Zhang, H. and Kondragunta, S.: Daily and Hourly Surface PM2.5 Estimation From Satellite AOD, Earth Space Sci, 8, doi: <a href="https://doi.org/10.1029/2020EA001599">10.1029/2020EA001599</a>, 2021.
   </li>
+  <li>
+      Henderson et al., Fusing Surface Monitors, Satellites and Forecasts for Near-real-time Air Quality, Presented at 41st AAAR Annual Conference, Oct 2023, https://aaarabstracts.com/2023/program.php
+  </li>
+  <li>
+      Henderson et al.: Preparing PurpleAir and Geostationary Satellites for AirNow, Presented at 23rd Annual Community Modeling and Analysis System, Oct 2023, url: https://cmascenter.org/conference/2023/agenda.cfm
+  </li>
+  <li>
+      Henderson et al., AirFuse Real-time Application and Improved Integration of Geostationary Satellite Data, Presented at 24rd Annual Community Modeling and Analysis System, Oct 2024, https://cmascenter.org/conference/2024/agenda.cfm
+  </li>     
 </ol>
 </body>
-<html>
+</html>
