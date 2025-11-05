@@ -90,8 +90,23 @@ def pmfuse(
       'FUSED_eVNA': 'Fused surface from eVNA PurpleAir and eVNA AirNow',
       'FUSED_aIDW': 'Fused surface from aIDW PurpleAir and aIDW AirNow',
     }
+    if kwds.get('debug', False):
+        # add output variables for debuging
+        vardescs[f'VNA_PA_{obskey}'] = (
+            f'VN weighted (n=nv, d**-2) PurpleAir {obskey}'
+        )
+        vardescs['aVNA_PA'] = (
+            'VNA of PurpleAir bias added to the NOAA NAQFC forecast'
+        )
+        vardescs['aVNA_AN_WGT'] = 'Weight of aVNA_AN in FUSED_aVNA'
+        vardescs['aVNA_PA_WGT'] = 'Weight of aVNA_PA in FUSED_aVNA'
+        vardescs['NAQFC_WGT'] = 'Weight of NAQFC in FUSED_aVNA'
+
     varattrs = {
-        k: dict(description=v, units='micrograms/m**3')
+        k: dict(
+            description=v,
+            units=('1' if k.endswith('_WGT') else 'micrograms/m**3')
+        )
         for k, v in vardescs.items()
     }
 
