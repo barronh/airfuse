@@ -1,9 +1,9 @@
 __all__ = ['pair_purpleair']
 
 
-def pair_purpleair(
-    bdate, bbox, proj, var, spc, api_key=None, exclude_stations=None,
-    dust_ev_filt=False
+def get_purpleair(
+    bdate, bbox, spc, api_key=None,
+    dust_ev_filt=False, debug=False
 ):
     """
     Arguments
@@ -12,18 +12,12 @@ def pair_purpleair(
         Beginning date for PurpleAir observations. edate = bdate + 3599 seconds
     bbox : tuple
         lower left lon, lower left lat, upper right lon, upper right lat
-    proj : pyproj.Proj
-        Projection of the model variable (var)
-    var : xr.DataArray
-        Model variable with values on centers
     spc : str
         Name of the species to retrieve from AQS via pyrsig
     api_key : str or None
         If a str, it must either be the API key or a path to a file with only
         the API key in its contents.
         If None, the API key must exist in ~/.purpleairkey
-    exclude_stations : None or list
-        List of stations to exclude.
     dust_ev_filt : bool
         If True, this removes sites where a dust event is likely
 
@@ -65,7 +59,7 @@ def pair_purpleair(
         unit_keys=False, parse_dates=True
     ).rename(columns=dict(pm25_corrected_hourly=spc))
 
-    if dust_ev_filt is True:
+    if dust_ev_filt or debug:
         # Bring in PM 0.3um and PM 5um count data for dust event filtering
         pm03df = rsigapi.to_dataframe(
             'purpleair.0_3_um_count', bdate=bdate, edate=edate,
@@ -119,9 +113,57 @@ def pair_purpleair(
         padf_aft = pd.merge(padf, padf_dust, how='inner', on='STATION')
         removed_sta = len(padf) - len(padf_aft)
         print('%s monitors removed due to dust event' % removed_sta)
-        padf_aft.drop(['Timestamp(UTC) Hourly', '0.3um ct/5um ct'],
-                      axis=1, inplace=True)
+        if not debug:
+            padf_aft.drop(
+                ['Timestamp(UTC) Hourly', '0.3um ct/5um ct'],
+                axis=1, inplace=True
+            )
         padf = padf_aft
+
+    return padf
+
+
+def pair_purpleair(
+    bdate, bbox, proj, var, spc, api_key=None, exclude_stations=None,
+    dust_ev_filt=False, debug=False
+):
+    """
+    Arguments
+    ---------
+    bdate : datelike
+        Beginning date for PurpleAir observations. edate = bdate + 3599 seconds
+    bbox : tuple
+        lower left lon, lower left lat, upper right lon, upper right lat
+    proj : pyproj.Proj
+        Projection of the model variable (var)
+    var : xr.DataArray
+        Model variable with values on centers
+    spc : str
+        Name of the species to retrieve from AQS via pyrsig
+    api_key : str or None
+        If a str, it must either be the API key or a path to a file with only
+        the API key in its contents.
+        If None, the API key must exist in ~/.purpleairkey
+    exclude_stations : None or list
+        List of stations to exclude.
+    dust_ev_filt : bool
+        If True, this removes sites where a dust event is likely
+
+    Returns
+    -------
+    padf : pandas.DataFrame
+        Dataframe with values for at least (x, y, spc, Model, BIAS, RATIO)
+        filtered so that only rows with Model are returned. This is important
+        because otherwise eVNA and aVNA are invalid. The returned dataframe
+        was preprocessed to average observations within half-sized grid cells
+        before pairing with the model.
+    """
+    import pandas as pd
+    import numpy as np
+
+    padf = get_purpleair(
+        bdate, bbox, spc, api_key=api_key, dust_ev_filt=dust_ev_filt
+    )
 
     # Identify PurpleAir records to exclude
     # missing value or unreasonably high value
@@ -143,12 +185,17 @@ def pair_purpleair(
     # add a PurpleAir removal process
 
     # Calculate PA values at 1/2 sized grid boxes (2.5km)
-    hcell = 5.079 / 4
+    x = var.x
+    y = var.y
+    dx = float(x.diff('x').mean())
+    qdx = dx / 4
+    dy = float(y.diff('y').mean())
+    qdy = dy / 4
     xbins = np.linspace(
-        var.x.min() - hcell, var.x.max() + hcell, var.x.size * 2
+        float(x.min()) - qdx, float(x.max()) + qdx, x.size * 2 + 1
     )
     ybins = np.linspace(
-        var.y.min() - hcell, var.y.max() + hcell, var.y.size * 2
+        float(y.min()) - qdy, float(y.max()) + qdy, y.size * 2 + 1
     )
 
     col = pd.cut(padf['x'], xbins).apply(lambda x: x.mid).astype('f')
