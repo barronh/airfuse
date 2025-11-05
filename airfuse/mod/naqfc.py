@@ -200,6 +200,52 @@ def open_mostrecent(
             raise last_err
 
 
+# full WMO header of product as key
+# ncei: variable name in NCEI ARchive
+# grib: variable name in grib files (via NOMADS or tgftp)
+# nws: file name code on tgftp ds.{nws}.bin
+# ncep: file name code on nomads aqm.tFFz.{ncep}.227.grib2
+_codes = {
+    'LZQZ99_KWBP': {
+        'ncei': 'Particulate_matter_fine_sigma_1_Hour_Average',
+        'grib': 'pmtf', 'nws': 'apm25h01', 'ncep': 'ave_1hr_pm25',
+    },
+    'LOPZ99_KWBP': {
+        'ncei': 'Particulate_matter_fine_sigma_1_Hour_Average',
+        'grib': 'pmtf', 'nws': 'apm25h01_bc', 'ncep': 'ave_1hr_pm25_bc',
+    },
+    'LYQZ99_KWBP': {
+        'ncei': 'Particulate_matter_fine_sigma_23_Hour_Average',
+        'grib': 'pmtf', 'nws': 'apm25h24', 'ncep': 'ave_24hr_pm25',
+    },
+    'LIPZ99_KWBP': {
+        'ncei': 'Particulate_matter_fine_sigma_23_Hour_Average',
+        'grib': 'pmtf', 'nws': 'apm25h24_bc', 'ncep': 'ave_24hr_pm25_bc',
+    },
+    'LYUZ99_KWBP': {
+        'ncei': 'Ozone_Concentration_sigma_1_Hour_Average',
+        'grib': 'ozcon', 'nws': 'ozone01', 'ncep': 'ave_1hr_o3',
+    },
+    'YBPZ99_KWBP': {
+        'ncei': 'Ozone_Concentration_sigma_1_Hour_Average',
+        'grib': 'ozcon', 'nws': 'ozone01_bc', 'ncep': 'ave_1hr_o3_bc',
+    },
+    'LZUZ99_KWBP': {
+        'ncei': 'Ozone_Concentration_sigma_8_Hour_Average',
+        'grib': 'ozcon', 'nws': 'ozone08', 'ncep': 'ave_8hr_o3',
+    },
+    'YHPZ99_KWBP': {
+        'ncei': 'Ozone_Concentration_sigma_8_Hour_Average',
+        'grib': 'ozcon', 'nws': 'ozone08_bc', 'ncep': 'ave_8hr_o3_bc',
+    },
+}
+# add aliases by nws and ncep
+for _pk, _opts in list(_codes.items()):
+    # add alias for full WMO header of CONUS
+    for _ok in ['nws', 'ncep']:
+        _codes[_opts[_ok]] = _opts
+
+
 def open_operational(
     bdate, key='LZQZ99_KWBP', filedate=None, source='nomads', failback='24h',
     verbose=4
@@ -249,24 +295,11 @@ def open_operational(
     import pyproj
     import numpy as np
 
-    if key.startswith('LZQZ99') or key.startswith('LOPZ99'):
-        oldkey = 'pmtf'
-        varkey = 'Particulate_matter_fine_sigma_1_Hour_Average'
-        nwscode = 'apm25h01'
-        ncepcode = 'ave_1hr_pm25'
-        if key.startswith('LOPZ99'):
-            nwscode = nwscode + '_bc'
-            ncepcode = ncepcode + '_bc'
-    elif key.startswith('LYUZ99') or key.startswith('YBPZ99'):
-        oldkey = 'ozcon'
-        varkey = 'Ozone_Concentration_sigma_1_Hour_Average'
-        nwscode = 'ozone01'
-        ncepcode = 'ave_1hr_o3'
-        if key.startswith('YBPZ99'):
-            nwscode = nwscode + '_bc'
-            ncepcode = ncepcode + '_bc'
-    else:
-        raise KeyError(f'Unknown key {key}')
+    codes = _codes[key]
+    oldkey = codes['grib']
+    varkey = codes['ncei']
+    ncepcode = codes['ncep']
+    nwscode = codes['nws']
 
     bdate = pd.to_datetime(bdate)
     edate = bdate + pd.to_timedelta('1h')
