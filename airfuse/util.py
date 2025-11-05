@@ -171,6 +171,7 @@ def mpestats(df, refkey='obs'):
                   )
 
     """
+    from scipy.stats.mstats import linregress
     sdf = df.describe().T
     sdf['5%'] = df.quantile(0.05)
     sdf['95%'] = df.quantile(0.95)
@@ -204,6 +205,11 @@ def mpestats(df, refkey='obs'):
     sdf['fme%'] = sdf['fme'] * 100
     sdf['rmse%'] = sdf['rmse'] / om * 100
     sdf.index.name = 'key'
+    for key in df.columns:
+        lr = linregress(df[refkey], df[key])
+        sdf.loc[key, 'lr_slope'] = lr.slope
+        sdf.loc[key, 'lr_intercept'] = lr.intercept
+        sdf.loc[key, 'lr_pvalue'] = lr.pvalue
 
     return sdf
 
