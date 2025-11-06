@@ -87,11 +87,11 @@ def fuse(
         if fitdf is not None:
             if 'sample_weight' not in fitkwds:
                 if 'sample_weight' in fitdf.columns:
-                    print(f'INFO:: Using sample_weight')
+                    print('INFO:: Using sample_weight')
                     fitkwds['sample_weight'] = fitdf['sample_weight']
             if 'groups' not in fitkwds:
                 if 'groups' in fitdf.columns:
-                    print(f'INFO:: Using groups')
+                    print('INFO:: Using groups')
                     fitkwds['groups'] = fitdf['groups']
 
     if obdnr is None:
