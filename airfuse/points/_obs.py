@@ -17,6 +17,7 @@ class obs:
         Arguments
         ---------
         date : date-like
+            Starting hour to load HH:00:00Z to HH:59:59Z
         key : str
             Override the default key (default: src.spc)
 

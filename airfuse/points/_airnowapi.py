@@ -4,7 +4,7 @@ from ._obs import obs
 class airnowapi(obs):
     def __init__(
         self, spc, bbox=None, nowcast=False,
-        sitekey='intlaqscode', inroot='inputs', api_key=None
+        sitekey='intlaqscode', inroot='inputs', montype=None, api_key=None
     ):
         import os
         super().__init__(
@@ -18,6 +18,7 @@ class airnowapi(obs):
             else:
                 raise KeyError(emsg)
         self.api_key = api_key
+        self.montype = montype
 
     def load(self, date, key=None):
         """load raw data from server.
@@ -25,6 +26,7 @@ class airnowapi(obs):
         Arguments
         ---------
         date : date-like
+            Starting hour to load HH:00:00Z to HH:59:59Z
         key : str
             Override the default key (default: src.spc)
 
@@ -33,19 +35,34 @@ class airnowapi(obs):
         df : pandas.DataFrame
             Must have time, longitude, latitude, nowcast, raw, and sitekey
         """
+        import os
         import requests
         import pandas as pd
         import numpy as np
         date = pd.to_datetime(date)
-        root = 'https://www.airnowapi.org/aq/data/'
-        bboxstr = '{},{},{},{}'.format(*self.bbox)
         datestr = date.strftime('%Y-%m-%dT%H')
+        root = 'https://www.airnowapi.org/aq/data/'
+        inroot = self.inroot
+        outpath = f'{inroot}/airnowapi/{date:%Y-%m-%d}'
+        outpath += f'/airnowapi.{self.spc}.{datestr}.csv'
+        if os.path.exists(outpath):
+            return pd.read_csv(outpath)
+        bboxstr = '{},{},{},{}'.format(*self.bbox)
         pcode = {'pm25': 'PM25', 'ozone': 'O3', 'o3': 'O3'}[self.spc]
+        montype = self.montype
+        if montype is None:
+            now = pd.to_datetime('now').floor('1h')
+            ds = (now - date).total_seconds() / 3600.
+            if ds > 1:
+                montype = '0'
+            else:
+                montype = '2'
+
         params = {
             'startDate': datestr, 'endDate': datestr,
-            'parameters': pcode, 'BBOX': bboxstr, 'dataType': 'B',
+            'parameters': pcode, 'BBOX': bboxstr, 'dataType': 'C',
             'format': 'application/json', 'verbose': '1',
-            'monitorType': '2', 'includerawconcentrations': '1',
+            'monitorType': montype, 'includerawconcentrations': '1',
             'API_KEY': self.api_key
         }
         with requests.get(root, params=params) as r:
@@ -53,14 +70,16 @@ class airnowapi(obs):
             j = r.json()
             df = pd.DataFrame.from_records(j)
             df.columns = [k.lower() for k in df.columns]
-        renamers = {'utc': 'time', 'value': 'nowcast', 'rawconcentration': 'raw'}
         df.replace(-999, np.nan)
-        df.columns = [renamers.get(k, k) for k in df.columns]
+        rnmrs = {'utc': 'time', 'value': 'nowcast', 'rawconcentration': 'raw'}
+        df.columns = [rnmrs.get(k, k) for k in df.columns]
         df['time'] = pd.to_datetime(df['time'])
-        okeys = [
-            'time', 'longitude', 'latitude', self.sitekey, 'nowcast', 'raw'
-        ]
-        return df[okeys]
+        okeys = ['time', 'longitude', 'latitude']
+        okeys += [self.sitekey, 'nowcast', 'raw']
+        outdf = df[okeys]
+        os.makedirs(os.path.dirname(outpath), exist_ok=True)
+        outdf.to_csv(outpath, index=False)
+        return outdf
 
     def get(self, date):
         """Get observational data for date

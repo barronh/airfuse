@@ -21,9 +21,9 @@ def addgridded(ds, df, keys, suffix='_GRID'):
 
 
 def fuse(
-    tgtdf, fitdf, obdnr=None, fitkwds=None, kfoldkwds=None,
+    tgtdf, fitdf, obdnr=None, dnrkwds=None, fitkwds=None, kfoldkwds=None,
     obskey='obs', modkey='mod',
-    yhatsfx='_dnr', cvsfx='_dnr_cv', xkeys=None
+    yhatsfx='_dnr', cvsfx='_dnr_cv', xkeys=None,
 ):
     """
     Apply AirFuse to tgtdf after fitting the model with fitdf
@@ -41,11 +41,19 @@ def fuse(
       If None, selects from available options as follows:
       - If groups in fitdf, obdnr will be a GroupedDelaunayNeighborsRegressor
       - Otherwise, DelaunayNeighborsRegressor
+    dnrkwds : mappable
+      Default {
+        "delaunay_weights": "only",
+        "n_neighbors": 30,
+        "weights": lambda d: np.maximum(d, 1e-10)**-2)
+      }
     fitkwds : mappable
       User supplied params for fitting.
       If None, defaults as follows:
       - if fitdf has column weight, adds sample_weight.
       - if fitdf has column groups, adds groups.
+    kfoldkwds : mappable
+      Default {"random_state": 42, "n_splits": 10, "shuffle": True}
     obskey : str
       Name of observation in fitdf
     modkey : str
@@ -55,8 +63,6 @@ def fuse(
     cvsfx : str
       Suffix to use for cross-validation results added to fitdf
       If None, do not perform cross-validation
-    kfoldkwds : mappable
-      Default {"random_state": 42, "n_splits": 10, "shuffle": True}
 
     Returns
     -------
@@ -81,16 +87,19 @@ def fuse(
         if fitdf is not None:
             if 'sample_weight' not in fitkwds:
                 if 'sample_weight' in fitdf.columns:
+                    print(f'INFO:: Using sample_weight')
                     fitkwds['sample_weight'] = fitdf['sample_weight']
             if 'groups' not in fitkwds:
                 if 'groups' in fitdf.columns:
+                    print(f'INFO:: Using groups')
                     fitkwds['groups'] = fitdf['groups']
 
     if obdnr is None:
         if fitdf is None:
             emsg = 'Either fitdf or obdnr is required; you supplied neither'
             raise ValueError(emsg)
-        dnrkwds = {}
+        if dnrkwds is None:
+            dnrkwds = {}
         print('INFO:: Using weights=lambda d: np.maximum(d, 1e-10)**-2')
         dnrkwds.setdefault('weights', lambda d: np.maximum(d, 1e-10)**-2)
         print('INFO:: Using delaunay_weights="only"')
@@ -117,10 +126,11 @@ def fuse(
         fitdf[okeys] = obdnr.predict(fitdf[xkeys])
         biascorrect(fitdf, suffix=yhatsfx, modkey=modkey, obskey=obskey)
     if tgtdf is not None:
+        idx = ~tgtdf[modkey].isna()
         if all([k in tgtdf.columns for k in xkeys]):
-            tgtX = tgtdf[xkeys]
+            tgtX = tgtdf.loc[idx, xkeys]
         else:
-            tgtX = tgtdf.index.to_frame()[xkeys]
+            tgtX = tgtdf.loc[idx].index.to_frame()[xkeys]
         okeys = [k + yhatsfx for k in ykeys]
-        tgtdf[okeys] = obdnr.predict(tgtX)
+        tgtdf.loc[idx, okeys] = obdnr.predict(tgtX)
         biascorrect(tgtdf, suffix=yhatsfx, modkey=modkey, obskey=obskey)

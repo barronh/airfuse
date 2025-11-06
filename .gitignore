@@ -5,12 +5,15 @@ __pycache__/
 
 # C extensions
 *.so
+
+# output extensions
+inputs/
+outputs/
 *.nc
+*.png
+*.geojson
 
 # Distribution / packaging
-20??/
-examples/typical/????/
-examples/simple/????/
 .Python
 build/
 develop-eggs/
