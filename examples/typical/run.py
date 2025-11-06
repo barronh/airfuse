@@ -82,15 +82,14 @@ tgtds.to_netcdf(ncpath)
 
 # Save the results as a GeoJSON file
 colors = [
-    '#eeeeee',
-    '#98cb00', '#fefe98', '#fefe00', '#fecb00', '#f69800', '#fe0000',
-    '#d50092'
-]
+    '#009500', '#98cb00', '#fefe98', '#fefe00',
+    '#fecb00', '#f69800', '#fe0000', '#d50092'
+]  # 8 colors between 9 edges
 edges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
 ds = xr.open_dataset(ncpath)
 jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'
 to_geojson(
     jpath, x=ds.x, y=ds.y, z=ds[f'bc{yhatsfx}'][0], crs=ds.crs_proj4,
-    edges=edges, colors=colors, under=colors[0], over=colors[-1],
+    edges=edges, colors=colors, under='#eeeeee', over=colors[-1],
     description=ds.description
 )
