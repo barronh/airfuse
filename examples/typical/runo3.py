@@ -6,8 +6,7 @@ import pandas as pd
 import xarray as xr
 from airfuse.layers import naqfc
 from airfuse.points import airnowapi
-from airfuse.utils import fuse, df2ds, to_geojson, mpestats
-
+from airfuse.utils import fuse, df2ds, to_geojson
 
 # %
 # User Configuration
@@ -21,12 +20,14 @@ from airfuse.utils import fuse, df2ds, to_geojson, mpestats
 #   - bc_yhatsfx : average of corrected models after removing negatives
 # - cvsfx : suffix for cross-validatin of model
 # - ncpath : Path for output to be saved
-spc = 'pm25'
+# - n_jobs : Number of threads to simultaneiously do calculations
+spc = 'ozone'
 nowcast = False
 date = pd.to_datetime('2025-01-09T12')
 yhatsfx = '_andnr'
 cvsfx = f'{yhatsfx}_cv'
 ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.nc'
+n_jobs = 32
 
 # %
 # Perform AirFuse
@@ -43,7 +44,7 @@ obdf = airnowapi(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
 
 # Make Predictions at model centers
 tgtdf = modvar.to_dataframe(name='mod')
-fuse(tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx, dnrkwds=dict(n_jobs=32))
+fuse(tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx, dnrkwds=dict(n_jobs=n_jobs))
 
 # %
 # Save Outputs
@@ -59,10 +60,13 @@ tgtds.to_netcdf(ncpath)
 
 # Save the results as a GeoJSON file
 colors = [
-    '#009500', '#98cb00', '#fefe98', '#fefe00',
-    '#fecb00', '#f69800', '#fe0000', '#d50092'
-]  # 8 colors between 9 edges
-edges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
+    '#00fe00', '#fefe80', '#fefe00', '#fbbe43', '#fe8000', '#fe0000'
+]  # 6 colors beteen 7 edges
+edges = [0, 60, 80, 100, 112, 125, 1000]
+if nowcast:
+    colors = ['#00e300', '#fefe00', '#fe7e00', '#fe0000', '#8e3f96', '#7e0023']
+    edges = [0, 54, 70, 85, 105, 200, 255]  # ozone aqi cutpoints
+
 ds = xr.open_dataset(ncpath)
 jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'
 to_geojson(
@@ -70,32 +74,3 @@ to_geojson(
     edges=edges, colors=colors, under='#eeeeee', over=colors[-1],
     description=ds.description
 )
-
-# %
-# Make Performance Plots
-# ----------------------
-# mod : forecast model
-# obs_yhatsfx_cv : interpolated obs
-# mbc_yhatsfx_cv : multiplicative bias correction
-# abc_yhatsfx_cv : additive bias correction
-# bc_yhatsfx_cv : average bias correction
-
-ds = xr.open_dataset(ncpath)
-ds['mod_cv'] = ds['mod'].sel(x=ds.obsx, y=ds.obsy, method='nearest')
-yhatkeys = ['obs', 'mbc', 'abc', 'bc']
-yhatkeys = ['mod_cv'] + [f'{k}{yhatsfx}_cv' for k in yhatkeys]
-
-for yhatkey in yhatkeys:
-    cvdf =  ds[['obs', yhatkey]].to_dataframe()
-    vmin = cvdf.min(None)
-    vmax = cvdf.max(None)
-    statdf = mpestats(cvdf)
-    skeys = ['count', 'mean', 'mb', 'me', 'rmse', 'r']
-    label = '\n'.join(str(statdf[yhatkey][skeys].round(2)).split('\n')[:-1])
-    ax = cvdf.plot.hexbin(
-        x='obs', y=yhatkey, gridsize=100, extent=(vmin, vmax, vmin, vmax),
-        mincnt=1, cmap='viridis'
-    )
-    ax.set(xlabel=f'obs [{ds.obs.units}]', ylabel=f'{yhatkey} [{ds.obs.units}]')
-    ax.text(vmax, vmin, label, ha='right', bbox=dict(facecolor='w', edgecolor='k'))
-    ax.figure.savefig(ncpath + '_' + yhatkey + '.png')

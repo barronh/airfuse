@@ -66,7 +66,7 @@ gdnr = dnr.GroupedDelaunayNeighborsRegressor(
 
 # Make Predictions at model centers
 tgtdf = modvar.to_dataframe(name='mod')
-fuse(tgtdf, obdf, obdnr=gdnr, yhatsfx=yhatsfx, cvsfx=cvsfx, dnrkwds=dict(n_jobs=n_jobs))
+fuse(tgtdf, obdf, obdnr=gdnr, yhatsfx=yhatsfx, cvsfx=cvsfx)
 
 # %
 # Save Outputs
@@ -86,6 +86,10 @@ colors = [
     '#fecb00', '#f69800', '#fe0000', '#d50092'
 ]  # 8 colors between 9 edges
 edges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
+if nowcast:
+    colors = ['#00e300', '#fefe00', '#fe7e00', '#fe0000', '#8e3f96', '#7e0023']
+    edges = [0, 12, 35.5, 55.5, 150.5, 250.5, 255]  # pm25 aqi cutpoints
+
 ds = xr.open_dataset(ncpath)
 jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'
 to_geojson(
