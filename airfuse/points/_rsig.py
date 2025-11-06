@@ -1,14 +1,17 @@
-class rsig_obs:
+from ._obs import obs
+
+
+class rsig_obs(obs):
     def __init__(
-        self, spc, bbox=(-135, 15, -55, 80), nowcast=False, src='airnow',
+        self, spc, bbox=None, nowcast=False, src='airnow',
         sitekey='site_name', inroot='inputs'
     ):
-        self.spc = spc
+        super().__init__(
+            spc=spc, bbox=bbox, nowcast=nowcast,
+            sitekey=sitekey, inroot=inroot
+        )
         self.src = src
-        self.nowcast = nowcast
-        self.sitekey = sitekey
-        self.rsigopts = dict(bbox=bbox)
-        self.inroot = inroot
+        self._rsigopts = dict(bbox=self.bbox)
 
     def load(self, date, key=None):
         """load raw data from server.
@@ -36,7 +39,7 @@ class rsig_obs:
         if key is None:
             key = f'{src}.{spc}'
         wdir = date.strftime(f'{self.inroot}/rsig/%Y/%m/%d')
-        api = pyrsig.RsigApi(workdir=wdir, **self.rsigopts)
+        api = pyrsig.RsigApi(workdir=wdir, **self._rsigopts)
         if self.nowcast:
             dhrs = np.arange(0, -12, -1)
         else:
@@ -63,74 +66,10 @@ class rsig_obs:
         df = df.rename(columns=renamer).drop(['timestamp'], axis=1)
         return df
 
-    def get(self, date):
-        """Get observational data for date
-
-        Arguments
-        ---------
-        date : date-like
-
-        Returns
-        -------
-        df : pandas.DataFrame.DataArray
-            Must have time, longitude, latitude, obs.
-            If nowcast, then obs will be nowcasted
-            Otherwise, obs will be a raw 1-hour value.
-        """
-        spc = self.spc
-
-        if self.nowcast:
-            from ..utils import pmnowcast, o3nowcast
-            hdf = self.load(date)
-            df = hdf.drop(['obs'], axis=1).groupby(self.sitekey).first()
-            if spc == 'pm25':
-                nowcast = pmnowcast
-            elif spc == 'ozone':
-                nowcast = o3nowcast
-            nc = hdf.groupby(self.sitekey).apply(
-                lambda df: nowcast(df.set_index('time').asfreq('1h')['obs']),
-                include_groups=False
-            )
-            df['obs'] = nc
-        else:
-            df = self.load(date)
-        return df
-
-    def pair(self, date, modvar, proj=None, qstr=None):
-        """pair observational from get with modvar
-
-        Arguments
-        ---------
-        date : datetime
-        modvar : xarray.DataArray
-        proj : pyproj.Proj
-        qstr : str
-
-        Returns
-        -------
-        df : pandas.DataFrame
-            Has obs, modvar.name, x, and y variables.
-            If nowcast, then obs is nowcasted
-        """
-        df = self.get(date)
-
-        if proj is not None:
-            df['x'], df['y'] = proj(df['longitude'], df['latitude'])
-        else:
-            df['x'], df['y'] = df['longitude'], df['latitude']
-
-        cds = df[['x', 'y']].to_xarray()
-        moddf = modvar.interp(
-            x=cds.x, y=cds.y, method='linear'
-        ).to_dataframe(name='mod')
-        df['mod'] = moddf['mod']
-        qstr = qstr or 'obs == obs and mod == mod'
-        return df.query(qstr)
-
 
 class rsigairnow(rsig_obs):
     def __init__(
-        self, spc, bbox=(-135, 15, -55, 80), nowcast=False, inroot='inputs'
+        self, spc, bbox=None, nowcast=False, inroot='inputs'
     ):
         super().__init__(
             spc, src='airnow', bbox=bbox, nowcast=nowcast, inroot=inroot
@@ -139,7 +78,7 @@ class rsigairnow(rsig_obs):
 
 class rsigpurpleair(rsig_obs):
     def __init__(
-        self, spc, bbox=(-135, 15, -55, 80), nowcast=False, inroot='inputs',
+        self, spc, bbox=None, nowcast=False, inroot='inputs',
         dust='ignore', api_key=None
     ):
         import os
@@ -155,7 +94,7 @@ class rsigpurpleair(rsig_obs):
                 raise IOError(emsg)
             with open(keypath, 'r') as kf:
                 api_key = kf.read().strip()
-        self.rsigopts['purpleair_kw'] = dict(api_key=api_key)
+        self._rsigopts['purpleair_kw'] = dict(api_key=api_key)
         assert dust in ('exclude', 'correct', 'ignore')
         self.dust = dust
 
