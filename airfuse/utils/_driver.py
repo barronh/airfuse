@@ -90,11 +90,11 @@ def fuse(
         if fitdf is not None:
             if 'sample_weight' not in fitkwds:
                 if 'sample_weight' in fitdf.columns:
-                    logger.info('Using sample_weight')
+                    logger.info('Using sample_weight column to weight samples.')
                     fitkwds['sample_weight'] = fitdf['sample_weight']
             if 'groups' not in fitkwds:
                 if 'groups' in fitdf.columns:
-                    logger.info('Using groups')
+                    logger.info('Using groups to stratify Delaunay diagrams')
                     fitkwds['groups'] = fitdf['groups']
 
     if obdnr is None:
