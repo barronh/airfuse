@@ -1,3 +1,7 @@
+import logging
+logger = logging.getLogger('airfuse.layers.naqfc')
+
+
 class naqfc(object):
     def __init__(
         self, spc, nowcast=False, maxval=2e3, inroot='inputs', **kwds
@@ -61,6 +65,7 @@ class naqfc(object):
         import os
         import pandas as pd
         import xarray as xr
+
         spc = self.spc
         fspc = {'ozone': 'o3'}.get(spc, spc)
         date = pd.to_datetime(date)
@@ -91,9 +96,7 @@ class naqfc(object):
         h12 = pd.to_timedelta('+12h')
         h24 = pd.to_timedelta('+24h')
         h72 = pd.to_timedelta('+72h')
-        print(date, fdates)
         fdates = fdates or [date, date - h24, date - h24 * 2]
-        print(date, fdates)
         now = pd.to_datetime('now', utc=True).tz_convert(None)
         if now.hour < 11:
             tgtstart = now.floor('1d') - h12
@@ -123,14 +126,14 @@ class naqfc(object):
                             os.makedirs(os.path.dirname(dest), exist_ok=True)
                             path, msg = urlretrieve(url, dest)
                         except Exception as e:
-                            print(e)
+                            logger.warn(str(e))
                             continue
                     with xr.open_dataset(path, **self.kwds) as testf:
                         reftime = pd.to_datetime(testf.time.values)
-                        print(reftime, date)
+                        logger.info(f'{path} time={reftime} target={date}')
                         if reftime < date:
                             return path
-                        print('too new')
+                        logger.warn(f'{path} time={reftime} after {date}')
         else:
             raise IOError('not found')
 

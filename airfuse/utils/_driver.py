@@ -1,3 +1,7 @@
+import logging
+logger = logging.getLogger('airfuse.utils.driver')
+
+
 def biascorrect(
     df, suffix='', obskey='obs', modkey='mod',
     mbckey='mbc', abckey='abc', bckey='bc'
@@ -75,10 +79,9 @@ def fuse(
 
     if xkeys is None:
         xkeys = ['x', 'y']
-        print(f'INFO:: Using xkeys={xkeys}')
+        logger.info(f'Using xkeys={xkeys}')
 
     ykeys = [obskey, modkey]
-    print(f'INFO:: Using ykeys={ykeys}')
     if kfoldkwds is None:
         kfoldkwds = {"random_state": 42, "n_splits": 10, "shuffle": True}
 
@@ -87,11 +90,11 @@ def fuse(
         if fitdf is not None:
             if 'sample_weight' not in fitkwds:
                 if 'sample_weight' in fitdf.columns:
-                    print('INFO:: Using sample_weight')
+                    logger.info('Using sample_weight')
                     fitkwds['sample_weight'] = fitdf['sample_weight']
             if 'groups' not in fitkwds:
                 if 'groups' in fitdf.columns:
-                    print('INFO:: Using groups')
+                    logger.info('Using groups')
                     fitkwds['groups'] = fitdf['groups']
 
     if obdnr is None:
@@ -101,13 +104,13 @@ def fuse(
         if dnrkwds is None:
             dnrkwds = {}
         if 'weights' not in dnrkwds:
-            print('INFO:: Using weights=lambda d: np.maximum(d, 1e-10)**-2')
+            logger.info('Using weights=lambda d: np.maximum(d, 1e-10)**-2')
             dnrkwds.setdefault('weights', lambda d: np.maximum(d, 1e-10)**-2)
         if 'delaunay_weights' not in dnrkwds:
-            print('INFO:: Using delaunay_weights="only"')
+            logger.info('Using delaunay_weights="only"')
             dnrkwds.setdefault('delaunay_weights', 'only')
         if 'n_neighbors' not in dnrkwds:
-            print('INFO:: Using n_neighbors=30')
+            logger.info('Using n_neighbors=30')
             dnrkwds.setdefault('n_neighbors', 30)
         if 'groups' in fitkwds:
             obdnr = dnr.GroupedDelaunayNeighborsRegressor(**dnrkwds)

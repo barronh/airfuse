@@ -5,3 +5,5 @@ from . import layers
 from . import points
 from . import utils
 from . import dnr
+import logging
+logger = logging.getLogger(__name__)

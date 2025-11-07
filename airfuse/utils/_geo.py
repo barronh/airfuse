@@ -39,12 +39,13 @@ def to_geopandas(
         Contains 1 row for each interval between edges, including rows with
         empty Polygons
     """
-    import warnings
     import numpy as np
     import matplotlib.pyplot as plt
     import pandas as pd
     from shapely.geometry import Polygon, MultiPolygon, box
     import geopandas as gpd
+    import logging
+    logger = logging.getLogger('airfuse.utils.to_geopandas')
 
     if edges is None:
         # Based on PM from DMC
@@ -128,7 +129,7 @@ def to_geopandas(
                 except Exception as e:
                     nbadpoly.append(e)
             if len(nbadpoly) > 0:
-                warnings.warn(
+                logger.warn(
                     f'*Lost {len(nbadpoly)} poly for {names[pi]}: {nbadpoly}'
                 )
         mpolys.append(dict(

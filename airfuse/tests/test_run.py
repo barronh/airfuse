@@ -71,7 +71,6 @@ def test_airnowonly():
             tgtdf, obdf, obdnr=gdnr, fitkwds=fitkwds, yhatsfx=yhatsfx,
             cvsfx=cvsfx
         )
-        tgtdf.set_index('time', append=True, inplace=True)
         tgtds = df2ds(
             tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx,
             crs_proj4=modvar.crs_proj4
@@ -142,7 +141,6 @@ def test_fullexample():
             tgtdf, obdf, obdnr=gdnr, fitkwds=fitkwds, yhatsfx=yhatsfx,
             cvsfx=cvsfx
         )
-        tgtdf.set_index('time', append=True, inplace=True)
         tgtds = df2ds(
             tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx,
             crs_proj4=modvar.crs_proj4

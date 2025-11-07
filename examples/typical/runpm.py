@@ -9,6 +9,7 @@ from airfuse import dnr
 from airfuse.layers import naqfc
 from airfuse.points import airnowapi, purpleairrsig
 from airfuse.utils import fuse, df2ds, to_geojson
+import logging
 
 # %
 # User Configuration
@@ -31,25 +32,43 @@ date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
 yhatsfx = '_gdnr'
 cvsfx = f'{yhatsfx}_cv'
 ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.nc'
+logpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.log'
 n_jobs = 32
+
+os.makedirs(os.path.dirname(logpath), exist_ok=True)
+logging.basicConfig(filename=logpath, level=logging.INFO)
+logging.info('Starting AirFuse')
+logging.info(f'spc={spc}')
+logging.info(f'date={date}')
+logging.info(f'nowcast={nowcast}')
+logging.info(f'ncpath={ncpath}')
+logging.info(f'logpath={logpath}')
+logging.info(f'n_jobs={n_jobs}')
 
 # %
 # Perform AirFuse
 # ---------------
 
 # Open Model Instance
+logging.info('Loading NAQFC')
 mod = naqfc(spc, nowcast=nowcast)
 
 # Extract a time-slice layer
 modvar = mod.get(date)
 
+logging.info('Loading Observations')
+logging.info('- AirNow : groups=0 sample_weight=1')
 # Get observations that match the model space/time coordinates
 andf = airnowapi(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
 andf[['groups', 'sample_weight']] = [0, 1]
 andf['sample_weight'] = andf['sample_weight'].where(andf['obs'] < 1000, .1)
+
+logging.info('- PurpleAir : groups=1 sample_weight=0.25')
 padf = purpleairrsig(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
 padf[['groups', 'sample_weight']] = [1, 0.25]
 padf['sample_weight'] = padf['sample_weight'].where(padf['obs'] < 1000, .0025)
+padf.query('obs < 1000', inplace=True)
+
 obdf = pd.concat([andf, padf], ignore_index=True)
 
 # Perform Fusion Using Grouped DNR
@@ -59,15 +78,21 @@ obdf = pd.concat([andf, padf], ignore_index=True)
 #   - two Delaunay diagrams and functions
 # - sample_weight will be added "automatically to the fitkwds
 # - groups will be added "automatically to the fitkwds
+anmindist = 1250
+pamindist = 2500
+logging.info('Configure Grouped DNR')
+logging.info(f' - AirNow Min Dist: {anmindist}m')
+logging.info(f' - PurpleAir Min Dist: {pamindist}m')
 gdnr = dnr.GroupedDelaunayNeighborsRegressor(
     delaunay_weights="only", n_neighbors=30,
     weights={
-        0: lambda d: np.maximum(1250, d)**-2,
-        1: lambda d: np.maximum(2500, d)**-2,
+        0: lambda d: np.maximum(anmindist, d)**-2,
+        1: lambda d: np.maximum(pamindist, d)**-2,
     }, n_jobs=n_jobs
 )
 
 # Make Predictions at model centers
+logging.info('Start fitting, cross-validation, and predictions')
 tgtdf = modvar.to_dataframe(name='mod')
 fuse(tgtdf, obdf, obdnr=gdnr, yhatsfx=yhatsfx, cvsfx=cvsfx)
 
@@ -76,13 +101,14 @@ fuse(tgtdf, obdf, obdnr=gdnr, yhatsfx=yhatsfx, cvsfx=cvsfx)
 # ------------
 
 # Save the results as a NetCDF file
+logging.info('Saving result as NetCDF')
 tgtds = df2ds(
     tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx, crs_proj4=modvar.crs_proj4
 )
-os.makedirs(os.path.dirname(ncpath), exist_ok=True)
 tgtds.to_netcdf(ncpath)
 
 # Save the results as a GeoJSON file
+logging.info('Saving result as GeoJson')
 colors = [
     '#009500', '#98cb00', '#fefe98', '#fefe00',
     '#fecb00', '#f69800', '#fe0000', '#d50092'
