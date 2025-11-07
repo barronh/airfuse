@@ -88,4 +88,4 @@ def mpestats(df, refkey='obs'):
         sdf.loc[key, 'lr_intercept'] = lr.intercept
         sdf.loc[key, 'lr_pvalue'] = lr.pvalue
 
-    return sdf
+    return sdf.T

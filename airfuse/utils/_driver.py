@@ -100,12 +100,15 @@ def fuse(
             raise ValueError(emsg)
         if dnrkwds is None:
             dnrkwds = {}
-        print('INFO:: Using weights=lambda d: np.maximum(d, 1e-10)**-2')
-        dnrkwds.setdefault('weights', lambda d: np.maximum(d, 1e-10)**-2)
-        print('INFO:: Using delaunay_weights="only"')
-        dnrkwds.setdefault('delaunay_weights', 'only')
-        dnrkwds.setdefault('n_neighbors', 30)
-        print('INFO:: Using n_neighbors=30')
+        if 'weights' not in dnrkwds:
+            print('INFO:: Using weights=lambda d: np.maximum(d, 1e-10)**-2')
+            dnrkwds.setdefault('weights', lambda d: np.maximum(d, 1e-10)**-2)
+        if 'delaunay_weights' not in dnrkwds:
+            print('INFO:: Using delaunay_weights="only"')
+            dnrkwds.setdefault('delaunay_weights', 'only')
+        if 'n_neighbors' not in dnrkwds:
+            print('INFO:: Using n_neighbors=30')
+            dnrkwds.setdefault('n_neighbors', 30)
         if 'groups' in fitkwds:
             obdnr = dnr.GroupedDelaunayNeighborsRegressor(**dnrkwds)
         else:

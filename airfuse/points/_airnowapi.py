@@ -70,7 +70,7 @@ class airnowapi(obs):
             j = r.json()
             df = pd.DataFrame.from_records(j)
             df.columns = [k.lower() for k in df.columns]
-        df.replace(-999, np.nan)
+        df.replace([-999, -999.0], np.nan, inplace=True)
         rnmrs = {'utc': 'time', 'value': 'nowcast', 'rawconcentration': 'raw'}
         df.columns = [rnmrs.get(k, k) for k in df.columns]
         df['time'] = pd.to_datetime(df['time'])

@@ -225,7 +225,7 @@ class naqfc(object):
             outvar.attrs.update(invar.attrs)
         else:
             f = self.open(date, fdates=fdates)
-            outvar = f[self.spc].sel(time=date, method='nearest')
+            outvar = f[self.spc].sel(time=[date], method='nearest')
             outvar[:] = outvar.where(
                 outvar.fillna(0) < self.maxval, self.maxval
             )

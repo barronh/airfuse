@@ -68,7 +68,7 @@ class rsig_obs(obs):
         return df
 
 
-class rsigairnow(rsig_obs):
+class airnowrsig(rsig_obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, inroot='inputs'
     ):
@@ -77,7 +77,7 @@ class rsigairnow(rsig_obs):
         )
 
 
-class rsigpurpleair(rsig_obs):
+class purpleairrsig(rsig_obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, inroot='inputs',
         dust='ignore', api_key=None

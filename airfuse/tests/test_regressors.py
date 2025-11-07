@@ -139,7 +139,7 @@ def test_dnr():
     dropkeys = ['x', 'y', 'groups', 'sample_weight']
     statdf = mpestats(
         obdf.query('groups == "an"').drop(dropkeys, axis=1), refkey='z'
-    )
+    ).T
     # last known valid test
     refds = pd.Series({
         'bc_an_dnr_cv': 3.53285559, 'mbc_an_dnr_cv': 3.55427420,

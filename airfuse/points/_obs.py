@@ -85,7 +85,9 @@ class obs:
             df['x'], df['y'] = df['longitude'], df['latitude']
 
         cds = df[['x', 'y']].to_xarray()
-        moddf = modvar.interp(
+        # the only dimensions should be x/y. If time exists, it is a unity
+        # dimension and can be squeezed out.
+        moddf = modvar.squeeze(drop=True).interp(
             x=cds.x, y=cds.y, method='linear'
         ).to_dataframe(name='mod')
         df['mod'] = moddf['mod']

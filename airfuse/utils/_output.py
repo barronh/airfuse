@@ -127,7 +127,7 @@ updated: {nowstr}
         outds[gk].attrs.update(varattrs.get(gk, {}))
     obdf = obdf.rename(columns=dict(x='obsx', y='obsy'))
     pkeep = [
-        'obsx', 'obsy', 'obs', 'groups', 'weight', f'obs{cvsfx}',
+        'obsx', 'obsy', 'obs', 'groups', 'sample_weight', f'obs{cvsfx}',
         f'mod{cvsfx}', f'abc{cvsfx}', f'mbc{cvsfx}', f'bc{cvsfx}',
     ]
     pkeep = [k for k in pkeep if k in obdf.columns]

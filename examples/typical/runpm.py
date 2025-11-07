@@ -7,7 +7,7 @@ import pandas as pd
 import xarray as xr
 from airfuse import dnr
 from airfuse.layers import naqfc
-from airfuse.points import airnowapi, rsigpurpleair
+from airfuse.points import airnowapi, purpleairrsig
 from airfuse.utils import fuse, df2ds, to_geojson
 
 # %
@@ -25,7 +25,9 @@ from airfuse.utils import fuse, df2ds, to_geojson
 # - n_jobs : Number of threads to simultaneiously do calculations
 spc = 'pm25'
 nowcast = False
-date = pd.to_datetime('2025-01-09T12')
+# date = pd.to_datetime('2025-01-09T12')
+lag = pd.to_timedelta('1h')
+date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
 yhatsfx = '_gdnr'
 cvsfx = f'{yhatsfx}_cv'
 ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.nc'
@@ -43,11 +45,12 @@ modvar = mod.get(date)
 
 # Get observations that match the model space/time coordinates
 andf = airnowapi(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
-padf = rsigpurpleair(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
-obdf = pd.concat([andf, padf], keys=['an', 'pa'])
-obdf.index.names = ['groups', 'index']
-obdf['groups'] = obdf.index.to_frame()['groups']
-obdf['sample_weight'] = obdf['groups'].map({'an': 1.0, 'pa': 0.25})
+andf[['groups', 'sample_weight']] = [0, 1]
+andf['sample_weight'] = andf['sample_weight'].where(andf['obs'] < 1000, .1)
+padf = purpleairrsig(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
+padf[['groups', 'sample_weight']] = [1, 0.25]
+padf['sample_weight'] = padf['sample_weight'].where(padf['obs'] < 1000, .0025)
+obdf = pd.concat([andf, padf], ignore_index=True)
 
 # Perform Fusion Using Grouped DNR
 # - Calculate one surface from pooled weights
@@ -59,8 +62,8 @@ obdf['sample_weight'] = obdf['groups'].map({'an': 1.0, 'pa': 0.25})
 gdnr = dnr.GroupedDelaunayNeighborsRegressor(
     delaunay_weights="only", n_neighbors=30,
     weights={
-        'an': lambda d: np.maximum(1250, d)**-2,
-        'pa': lambda d: np.maximum(2500, d)**-2,
+        0: lambda d: np.maximum(1250, d)**-2,
+        1: lambda d: np.maximum(2500, d)**-2,
     }, n_jobs=n_jobs
 )
 
@@ -73,7 +76,6 @@ fuse(tgtdf, obdf, obdnr=gdnr, yhatsfx=yhatsfx, cvsfx=cvsfx)
 # ------------
 
 # Save the results as a NetCDF file
-tgtdf.set_index('time', append=True, inplace=True)
 tgtds = df2ds(
     tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx, crs_proj4=modvar.crs_proj4
 )
@@ -86,9 +88,11 @@ colors = [
     '#fecb00', '#f69800', '#fe0000', '#d50092'
 ]  # 8 colors between 9 edges
 edges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
+
 if nowcast:
     colors = ['#00e300', '#fefe00', '#fe7e00', '#fe0000', '#8e3f96', '#7e0023']
-    edges = [0, 12, 35.5, 55.5, 150.5, 250.5, 255]  # pm25 aqi cutpoints
+    edges = [0, 12, 35.5, 55.5, 150.5, 250.5, 255]  # old pm25 aqi cutpoints EPA 454/B-18-007 September 2018
+    edges = [0, 9, 35.5, 55.5, 125.5, 225.5, 255]  # new pm25 aqi cutpoints EPA-454/B-24-002 May 2024
 
 ds = xr.open_dataset(ncpath)
 jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'

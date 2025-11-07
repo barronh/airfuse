@@ -29,7 +29,7 @@ nowcast = False
 @pytest.mark.skipif(_haspakey, reason="running fullexample")
 def test_airnowonly():
     from ..layers import naqfc
-    from ..points import rsigairnow
+    from ..points import airnowrsig
     from ..utils import fuse, df2ds, to_geojson
     from .. import dnr
 
@@ -41,7 +41,7 @@ def test_airnowonly():
         # Get Obs: AirNow & PurpleAir
         xkeys = ['x', 'y']
         ykeys = ['obs', 'mod']
-        obdf = rsigairnow(spc, nowcast=nowcast, inroot=td).pair(
+        obdf = airnowrsig(spc, nowcast=nowcast, inroot=td).pair(
             date, modvar, mod.proj
         )[xkeys + ykeys]
         obdf['groups'] = 'an'
@@ -93,7 +93,7 @@ def test_airnowonly():
 @pytest.mark.skipif(not _haspakey, reason="requires ~/.purpleairkey")
 def test_fullexample():
     from ..layers import naqfc
-    from ..points import rsigairnow, rsigpurpleair
+    from ..points import airnowrsig, purpleairrsig
     from ..utils import fuse, df2ds, to_geojson
     from .. import dnr
     with tempfile.TemporaryDirectory() as td:
@@ -102,10 +102,10 @@ def test_fullexample():
         modvar = mod.get(date)
 
         # Get Obs: AirNow & PurpleAir
-        andf = rsigairnow(spc, nowcast=nowcast, inroot=td).pair(
+        andf = airnowrsig(spc, nowcast=nowcast, inroot=td).pair(
             date, modvar, mod.proj
         )
-        padf = rsigpurpleair(spc, nowcast=nowcast, inroot=td).pair(
+        padf = purpleairrsig(spc, nowcast=nowcast, inroot=td).pair(
             date, modvar, mod.proj
         )
         xkeys = ['x', 'y']
