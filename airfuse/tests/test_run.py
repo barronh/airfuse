@@ -28,19 +28,23 @@ nowcast = False
 
 @pytest.mark.skipif(_haspakey, reason="running fullexample")
 def test_airnowonly():
+    from sklearn.model_selection import KFold
+    from sklearn.model_selection import cross_val_predict
     from ..layers import naqfc
     from ..points import airnowrsig
-    from ..utils import fuse, df2ds, to_geojson
+    from ..utils import addattrs, to_geojson
     from .. import dnr
 
     with tempfile.TemporaryDirectory() as td:
+        ncpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z.nc'
+        jpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z.geojson'
         mod = naqfc(spc, nowcast=nowcast, inroot=td)
         # get acquires a local cache for reuse in nowcast
         modvar = mod.get(date)
 
         # Get Obs: AirNow & PurpleAir
-        xkeys = ['x', 'y']
-        ykeys = ['obs', 'mod']
+        xkeys = ['x', 'y', 'mod']
+        ykeys = ['obs']
         obdf = airnowrsig(spc, nowcast=nowcast, inroot=td).pair(
             date, modvar, mod.proj
         )[xkeys + ykeys]
@@ -52,10 +56,7 @@ def test_airnowonly():
         # - Weights calculated separately for groups
         #   - two base functions,
         #   - two Delaunay diagrams and functions
-        yhatsfx = '_angdnr'
-        cvsfx = f'{yhatsfx}_cv'
-        ncpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.nc'
-        gdnr = dnr.GroupedDelaunayNeighborsRegressor(
+        regr = dnr.BCGroupedDelaunayNeighborsRegressor(
             n_neighbors=30, delaunay_weights='only', weights={
                 'an': lambda d: np.maximum(1250, d)**-2,
                 'pa': lambda d: np.maximum(2500, d)**-2,
@@ -67,20 +68,35 @@ def test_airnowonly():
         tgtdf = modvar.sel(
             x=slice(*xlim), y=slice(*ylim)
         ).to_dataframe(name='mod')
-        fuse(
-            tgtdf, obdf, obdnr=gdnr, fitkwds=fitkwds, yhatsfx=yhatsfx,
-            cvsfx=cvsfx
+        tgtX = tgtdf.index.to_frame()[['x', 'y']]
+        tgtX['mod'] = tgtdf['mod']
+        kf = KFold(random_state=42, n_splits=10, shuffle=True)
+        xkeys = ['x', 'y', 'mod']
+        fitkwds = dict(
+            groups=obdf['groups'], sample_weight=obdf['sample_weight']
         )
-        tgtds = df2ds(
-            tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx,
-            crs_proj4=modvar.crs_proj4
+        obdf['mod_bc_cv'] = cross_val_predict(
+            regr, obdf[xkeys], obdf['obs'], cv=kf, params=fitkwds
         )
+        regr.fit(obdf[xkeys], obdf['obs'], **fitkwds)
+        tgtdf['mod_bc'] = regr.predict(tgtX)
+
+        tgtds = tgtdf.to_xarray()
+        tgtds['obsx'] = obdf['x'].to_xarray()
+        tgtds['obsy'] = obdf['y'].to_xarray()
+        tgtds['obs'] = obdf['obs'].to_xarray()
+        tgtds['groups'] = obdf['groups'].to_xarray()
+        tgtds['sample_weight'] = obdf['sample_weight'].to_xarray()
+        tgtds['mod_bc_cv'] = obdf['mod_bc_cv'].to_xarray()
+        tgtds['mod'].attrs.update(modvar.attrs)
+        addattrs(tgtds, units=modvar.units)
+        tgtds.attrs['crs_proj4'] = modvar.crs_proj4
         os.makedirs(os.path.dirname(ncpath), exist_ok=True)
         tgtds.to_netcdf(ncpath)
+
         ds = xr.open_dataset(ncpath)
-        jpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'
         to_geojson(
-            jpath, x=ds.x, y=ds.y, z=ds['bc_gdnr'][0], crs=ds.crs_proj4,
+            jpath, x=ds.x, y=ds.y, z=ds['mod_bc'][0], crs=ds.crs_proj4,
             edges=_edges, colors=_colors, under=_colors[0], over=_colors[-1],
             description=ds.description
         )
@@ -91,11 +107,16 @@ def test_airnowonly():
 
 @pytest.mark.skipif(not _haspakey, reason="requires ~/.purpleairkey")
 def test_fullexample():
+    from sklearn.model_selection import KFold
+    from sklearn.model_selection import cross_val_predict
     from ..layers import naqfc
     from ..points import airnowrsig, purpleairrsig
-    from ..utils import fuse, df2ds, to_geojson
+    from ..utils import addattrs, to_geojson
     from .. import dnr
     with tempfile.TemporaryDirectory() as td:
+        ncpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z.nc'
+        jpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z.geojson'
+
         mod = naqfc(spc, nowcast=nowcast, inroot=td)
         # get acquires a local cache for reuse in nowcast
         modvar = mod.get(date)
@@ -107,8 +128,8 @@ def test_fullexample():
         padf = purpleairrsig(spc, nowcast=nowcast, inroot=td).pair(
             date, modvar, mod.proj
         )
-        xkeys = ['x', 'y']
-        ykeys = ['obs', 'mod']
+        xkeys = ['x', 'y', 'mod']
+        ykeys = ['obs']
         obdf = pd.concat([andf, padf], keys=['an', 'pa'])[xkeys + ykeys]
         obdf.index.names = ['groups', 'id']
         obdf = obdf.reset_index()
@@ -122,10 +143,7 @@ def test_fullexample():
         # - Weights calculated separately for groups
         #   - two base functions,
         #   - two Delaunay diagrams and functions
-        yhatsfx = '_gdnr'
-        cvsfx = f'{yhatsfx}_cv'
-        ncpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.nc'
-        gdnr = dnr.GroupedDelaunayNeighborsRegressor(
+        regr = dnr.BCGroupedDelaunayNeighborsRegressor(
             n_neighbors=30, delaunay_weights='only', weights={
                 'an': lambda d: np.maximum(1250, d)**-2,
                 'pa': lambda d: np.maximum(2500, d)**-2,
@@ -137,20 +155,36 @@ def test_fullexample():
         tgtdf = modvar.sel(
             x=slice(*xlim), y=slice(*ylim)
         ).to_dataframe(name='mod')
-        fuse(
-            tgtdf, obdf, obdnr=gdnr, fitkwds=fitkwds, yhatsfx=yhatsfx,
-            cvsfx=cvsfx
+        tgtX = tgtdf.index.to_frame()[['x', 'y']]
+        tgtX['mod'] = tgtdf['mod']
+        kf = KFold(random_state=42, n_splits=10, shuffle=True)
+        xkeys = ['x', 'y', 'mod']
+        fitkwds = dict(
+            groups=obdf['groups'],
+            sample_weight=obdf['sample_weight']
         )
-        tgtds = df2ds(
-            tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx,
-            crs_proj4=modvar.crs_proj4
+        obdf['mod_bc_cv'] = cross_val_predict(
+            regr, obdf[xkeys], obdf['obs'], cv=kf, params=fitkwds
         )
+        regr.fit(obdf[xkeys], obdf['obs'], **fitkwds)
+        tgtdf['mod_bc'] = regr.predict(tgtX)
+
+        tgtds = tgtdf.to_xarray()
+        tgtds['obsx'] = obdf['x'].to_xarray()
+        tgtds['obsy'] = obdf['y'].to_xarray()
+        tgtds['obs'] = obdf['obs'].to_xarray()
+        tgtds['groups'] = obdf['groups'].to_xarray()
+        tgtds['sample_weight'] = obdf['sample_weight'].to_xarray()
+        tgtds['mod_bc_cv'] = obdf['mod_bc_cv'].to_xarray()
+        tgtds['mod'].attrs.update(modvar.attrs)
+        addattrs(tgtds, units=modvar.units)
+        tgtds.attrs['crs_proj4'] = modvar.crs_proj4
         os.makedirs(os.path.dirname(ncpath), exist_ok=True)
         tgtds.to_netcdf(ncpath)
+
         ds = xr.open_dataset(ncpath)
-        jpath = f'{td}/{date:%Y/%m/%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'
         to_geojson(
-            jpath, x=ds.x, y=ds.y, z=ds['bc_gdnr'][0], crs=ds.crs_proj4,
+            jpath, x=ds.x, y=ds.y, z=ds['mod_bc'][0], crs=ds.crs_proj4,
             edges=_edges, colors=_colors, under=_colors[0], over=_colors[-1],
             description=ds.description
         )

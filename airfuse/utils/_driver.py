@@ -90,7 +90,8 @@ def fuse(
         if fitdf is not None:
             if 'sample_weight' not in fitkwds:
                 if 'sample_weight' in fitdf.columns:
-                    logger.info('Using sample_weight column to weight samples.')
+                    imsg = 'Using sample_weight column to weight samples.'
+                    logger.info(imsg)
                     fitkwds['sample_weight'] = fitdf['sample_weight']
             if 'groups' not in fitkwds:
                 if 'groups' in fitdf.columns:
@@ -113,30 +114,30 @@ def fuse(
             logger.info('Using n_neighbors=30')
             dnrkwds.setdefault('n_neighbors', 30)
         if 'groups' in fitkwds:
-            obdnr = dnr.GroupedDelaunayNeighborsRegressor(**dnrkwds)
+            obdnr = dnr.BCGroupedDelaunayNeighborsRegressor(**dnrkwds)
         else:
-            obdnr = dnr.DelaunayNeighborsRegressor(**dnrkwds)
+            obdnr = dnr.BCDelaunayNeighborsRegressor(**dnrkwds)
 
     if cvsfx is not None and fitdf is not None:
-        okeys = [k + cvsfx for k in ykeys]
-        yhat_cv = cross_val_predict(
+        okeys = [f'{k}{cvsfx}' for k in ykeys]
+        fitdf[okeys] = cross_val_predict(
             obdnr, fitdf[xkeys], fitdf[ykeys],
             params=fitkwds,
             cv=KFold(**kfoldkwds)
         )
-        fitdf[okeys] = yhat_cv
-        biascorrect(fitdf, suffix=cvsfx, modkey=modkey, obskey=obskey)
+        biascorrect(fitdf, suffix=cvsfx, obskey=obskey, modkey=modkey)
     if fitdf is not None:
+        okeys = [f'{k}{yhatsfx}' for k in ykeys]
         obdnr.fit(fitdf[xkeys], fitdf[ykeys], **fitkwds)
-        okeys = [k + yhatsfx for k in ykeys]
         fitdf[okeys] = obdnr.predict(fitdf[xkeys])
-        biascorrect(fitdf, suffix=yhatsfx, modkey=modkey, obskey=obskey)
+        biascorrect(fitdf, suffix=yhatsfx, obskey=obskey, modkey=modkey)
     if tgtdf is not None:
         idx = ~tgtdf[modkey].isna()
         if all([k in tgtdf.columns for k in xkeys]):
             tgtX = tgtdf.loc[idx, xkeys]
         else:
-            tgtX = tgtdf.loc[idx].index.to_frame()[xkeys]
-        okeys = [k + yhatsfx for k in ykeys]
+            tgtX = tgtdf.loc[idx].index.to_frame()[xkeys[:-1]]
+            tgtX['mod'] = tgtdf['mod']
+        okeys = [f'{k}{yhatsfx}' for k in ykeys]
         tgtdf.loc[idx, okeys] = obdnr.predict(tgtX)
-        biascorrect(tgtdf, suffix=yhatsfx, modkey=modkey, obskey=obskey)
+        biascorrect(tgtdf, suffix=yhatsfx, obskey=obskey, modkey=modkey)

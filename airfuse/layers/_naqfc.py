@@ -126,14 +126,14 @@ class naqfc(object):
                             os.makedirs(os.path.dirname(dest), exist_ok=True)
                             path, msg = urlretrieve(url, dest)
                         except Exception as e:
-                            logger.warn(str(e))
+                            logger.warning(str(e))
                             continue
                     with xr.open_dataset(path, **self.kwds) as testf:
                         reftime = pd.to_datetime(testf.time.values)
                         logger.info(f'{path} time={reftime} target={date}')
                         if reftime < date:
                             return path
-                        logger.warn(f'{path} time={reftime} after {date}')
+                        logger.warning(f'{path} time={reftime} after {date}')
         else:
             raise IOError('not found')
 

@@ -58,8 +58,13 @@ def _isdelaunay(tgtx, X, n_jobs=None):
         from joblib import Parallel, delayed
         n = X.shape[0]
         ns = [n // n_jobs] * n_jobs
-        ns[-1] += (n - sum(ns))
-        print('Cells per job', ns)
+        ne = (n - sum(ns))
+        if ne > 0:
+            for i in range(ne):
+                ns[i] += 1
+
+        assert sum(ns) == n
+        print('_isdelaunay batch sizes', ns)
         se = np.cumsum([0] + ns)
         with Parallel(n_jobs=n_jobs, verbose=10) as par:
             processed_list = par(
@@ -355,6 +360,8 @@ class GroupedDelaunayNeighborsRegressor(DelaunayNeighborsRegressor):
 
     def fit(self, X, y, sample_weight=None, groups=None):
         self._dnrs = {}
+        if groups is None:
+            groups = np.ones(X.shape[0], dtype='f')
         self._ug = np.unique(groups)
         for g in self._ug:
             ismine = groups == g
@@ -471,3 +478,218 @@ class FusedDelaunayNeighborsRegressor(GroupedDelaunayNeighborsRegressor):
         for j in range(nout):
             y_pred[:, j] = (scales * y_preds[..., j]).sum(1) / denom
         return y_pred
+
+
+class BCDelaunayNeighborsRegressor(DelaunayNeighborsRegressor):
+    def fit(self, X, y, sample_weight=None):
+        """
+        Arguments
+        ---------
+        X : n x 3 array
+            X should have n records and 3 columns x, y, initial-estimate
+        y : n x m
+            y should have n recordsa and m features
+        sample_weight : array
+            sample_weight (if provided) should have n records
+
+        Returns
+        -------
+        None
+        """
+        import numpy as np
+        X = np.asarray(X)
+        y = np.asarray(y)
+        nr = y.shape[0]
+        if y.ndim == 1:
+            y = y[:, None]
+
+        ny = y.shape[1]
+        _y = np.empty((nr, ny + 1), dtype=y.dtype)
+        _y[:, 1:] = y
+        _y[:, 0] = X[:, -1]
+        _X = X[:, :-1]
+        super().fit(_X, _y, sample_weight=sample_weight)
+
+    def predict(self, X, how='bc'):
+        """
+        Arguments
+        ---------
+        X : n x 3 array
+            X should have n records and 3 columns x, y, initial-estimate
+        y : n x m
+            y should have n recordsa and m features
+
+        Returns
+        -------
+        None
+        """
+        import numpy as np
+        X = np.asarray(X)
+        _X = X[:, :-1]
+        _mod = X[:, -1:]
+        _y = super().predict(_X)
+        _yhat = _y[:, 1:]
+        _xhat = _y[:, :1]
+        if how in ('bc', 'abc', 'all'):
+            abc = _mod + _yhat - _xhat
+        if how in ('bc', 'mbc', 'all'):
+            mbc = _mod + _yhat / _xhat
+        if how in ('bc', 'all'):
+            bc = np.mean([abc, mbc], axis=0)
+            bc[:] = np.where(abc < 0, mbc, bc)
+
+        if how == 'all':
+            out = np.concatenate([abc, mbc, bc], axis=-1)
+        elif how == 'abc':
+            out = abc
+        elif how == 'mbc':
+            out = mbc
+        elif how == 'bc':
+            out = bc
+        return np.squeeze(out)
+
+
+class BCGroupedDelaunayNeighborsRegressor(GroupedDelaunayNeighborsRegressor):
+    def fit(self, X, y, sample_weight=None, groups=None):
+        """
+        Arguments
+        ---------
+        X : n x 3 array
+            X should have n records and 3 columns x, y, initial-estimate
+        y : n x m
+            y should have n recordsa and m features
+        sample_weight : array
+            sample_weight (if provided) should have n records
+        groups : array
+            groups (if provided) should have n records
+
+        Returns
+        -------
+        None
+        """
+        import numpy as np
+        X = np.asarray(X)
+        y = np.asarray(y)
+        nr = y.shape[0]
+        if y.ndim == 1:
+            y = y[:, None]
+
+        ny = y.shape[1]
+        _y = np.empty((nr, ny + 1), dtype=y.dtype)
+        _y[:, 1:] = y
+        _y[:, 0] = X[:, -1]
+        _X = X[:, :-1]
+        super().fit(_X, _y, sample_weight=sample_weight, groups=groups)
+
+    def predict(self, X, how='bc'):
+        """
+        Arguments
+        ---------
+        X : n x 3 array
+            X should have n records and 3 columns x, y, initial-estimate
+        y : n x m
+            y should have n recordsa and m features
+
+        Returns
+        -------
+        None
+        """
+        import numpy as np
+        assert how in ('bc', 'abc', 'mbc', 'all')
+        X = np.asarray(X)
+        _X = X[:, :-1]
+        _mod = X[:, -1:]
+        _y = super().predict(_X)
+        _yhat = _y[:, 1:]
+        _xhat = _y[:, :1]
+        if how in ('bc', 'abc', 'all'):
+            abc = _mod + _yhat - _xhat
+        if how in ('bc', 'mbc', 'all'):
+            mbc = _mod + _yhat / _xhat
+        if how in ('bc', 'all'):
+            bc = np.mean([abc, mbc], axis=0)
+            bc[:] = np.where(abc < 0, mbc, bc)
+
+        if how == 'all':
+            out = np.concatenate([abc, mbc, bc], axis=-1)
+        elif how == 'abc':
+            out = abc
+        elif how == 'mbc':
+            out = mbc
+        elif how == 'bc':
+            out = bc
+
+        return np.squeeze(out)
+
+
+class BCFusedDelaunayNeighborsRegressor(FusedDelaunayNeighborsRegressor):
+    def fit(self, X, y, sample_weight=None, groups=None):
+        """
+        Arguments
+        ---------
+        X : n x 3 array
+            X should have n records and 3 columns x, y, initial-estimate
+        y : n x m
+            y should have n recordsa and m features
+        sample_weight : array
+            sample_weight (if provided) should have n records
+        groups : array
+            groups (if provided) should have n records
+
+        Returns
+        -------
+        None
+        """
+        import numpy as np
+        X = np.asarray(X)
+        y = np.asarray(y)
+        nr = y.shape[0]
+        if y.ndim == 1:
+            y = y[:, None]
+
+        ny = y.shape[1]
+        _y = np.empty((nr, ny + 1), dtype=y.dtype)
+        _y[:, 1:] = y
+        _y[:, 0] = X[:, -1]
+        _X = X[:, :-1]
+        super().fit(_X, _y, sample_weight=sample_weight, groups=groups)
+
+    def predict(self, X, how='bc'):
+        """
+        Arguments
+        ---------
+        X : n x 3 array
+            X should have n records and 3 columns x, y, initial-estimate
+        y : n x m
+            y should have n recordsa and m features
+
+        Returns
+        -------
+        None
+        """
+        import numpy as np
+        assert how in ('bc', 'abc', 'mbc', 'all')
+        X = np.asarray(X)
+        _X = X[:, :-1]
+        _mod = X[:, -1:]
+        _y = super().predict(_X)
+        _yhat = _y[:, 1:]
+        _xhat = _y[:, :1]
+        if how in ('bc', 'abc', 'all'):
+            abc = _mod + _yhat - _xhat
+        if how in ('bc', 'mbc', 'all'):
+            mbc = _mod + _yhat / _xhat
+        if how in ('bc', 'all'):
+            bc = np.mean([abc, mbc], axis=0)
+            bc[:] = np.where(abc < 0, mbc, bc)
+
+        if how == 'all':
+            out = np.concatenate([abc, mbc, bc], axis=-1)
+        elif how == 'abc':
+            out = abc
+        elif how == 'mbc':
+            out = mbc
+        elif how == 'bc':
+            out = bc
+
+        return np.squeeze(out)

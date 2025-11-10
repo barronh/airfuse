@@ -2,11 +2,14 @@
 # Library Imports
 # ---------------
 import os
+import numpy as np
 import pandas as pd
-import xarray as xr
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_predict
 from airfuse.layers import naqfc
 from airfuse.points import airnowapi
-from airfuse.utils import fuse, df2ds, to_geojson, mpestats
+from airfuse.utils import mpestats
+from airfuse import dnr
 
 
 # %
@@ -15,18 +18,14 @@ from airfuse.utils import fuse, df2ds, to_geojson, mpestats
 # - spc : pm25 or ozone
 # - nowcast : True or False
 # - date : datetime with hour precision
-# - yhatsfx : model prediction suffix
-#   - mbc_yhatsfx : multiplicative corrected model
-#   - abc_yhatsfx : additive corrected model
-#   - bc_yhatsfx : average of corrected models after removing negatives
-# - cvsfx : suffix for cross-validatin of model
 # - ncpath : Path for output to be saved
 spc = 'pm25'
 nowcast = False
 date = pd.to_datetime('2025-01-09T12')
-yhatsfx = '_andnr'
-cvsfx = f'{yhatsfx}_cv'
-ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.nc'
+figpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_PM25'
+
+
+os.makedirs(os.path.dirname(figpath), exist_ok=True)
 
 # %
 # Perform AirFuse
@@ -41,61 +40,38 @@ modvar = mod.get(date)
 # Get observations that match the model space/time coordinates
 obdf = airnowapi(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
 
-# Make Predictions at model centers
-tgtdf = modvar.to_dataframe(name='mod')
-fuse(tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx, dnrkwds=dict(n_jobs=32))
-
-# %
-# Save Outputs
-# ------------
-
-# Save the results as a NetCDF file
-tgtdf.set_index('time', append=True, inplace=True)
-tgtds = df2ds(
-    tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx, crs_proj4=modvar.crs_proj4
+# Create a regressor specifying k nieghbors, distance function, and
+# parallel processing.
+regr = dnr.BCDelaunayNeighborsRegressor(
+    n_neighbors=30, weights=lambda d: np.maximum(d, 1e-10)**-2
 )
-os.makedirs(os.path.dirname(ncpath), exist_ok=True)
-tgtds.to_netcdf(ncpath)
 
-# Save the results as a GeoJSON file
-colors = [
-    '#009500', '#98cb00', '#fefe98', '#fefe00',
-    '#fecb00', '#f69800', '#fe0000', '#d50092'
-]  # 8 colors between 9 edges
-edges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
-ds = xr.open_dataset(ncpath)
-jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'
-to_geojson(
-    jpath, x=ds.x, y=ds.y, z=ds[f'bc{yhatsfx}'][0], crs=ds.crs_proj4,
-    edges=edges, colors=colors, under='#eeeeee', over=colors[-1],
-    description=ds.description
-)
+# Perform Cross validation
+kf = KFold(random_state=42, n_splits=10, shuffle=True)
+xkeys = ['x', 'y', 'mod']
+obdf['mod_bc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf)
+
+# Fit the full model
+regr.fit(obdf[xkeys], obdf['obs'])
+obdf['mod_bc'] = regr.predict(obdf[xkeys])
 
 # %
 # Make Performance Plots
 # ----------------------
-# mod : forecast model
-# obs_yhatsfx_cv : interpolated obs
-# mbc_yhatsfx_cv : multiplicative bias correction
-# abc_yhatsfx_cv : additive bias correction
-# bc_yhatsfx_cv : average bias correction
 
-ds = xr.open_dataset(ncpath)
-ds['mod_cv'] = ds['mod'].sel(x=ds.obsx, y=ds.obsy, method='nearest')
-yhatkeys = ['obs', 'mbc', 'abc', 'bc']
-yhatkeys = ['mod_cv'] + [f'{k}{yhatsfx}_cv' for k in yhatkeys]
-
+units = 'micrograms/m**3'
+yhatkeys = ['mod', 'mod_bc_cv', 'mod_bc']
+cvdf = obdf[['obs'] + yhatkeys]
+statdf = mpestats(cvdf)
 for yhatkey in yhatkeys:
-    cvdf =  ds[['obs', yhatkey]].to_dataframe()
-    vmin = cvdf.min(None)
-    vmax = cvdf.max(None)
-    statdf = mpestats(cvdf)
+    vmin =  statdf.loc['min', ['obs', yhatkey]].min()
+    vmax =  statdf.loc['max', ['obs', yhatkey]].max()
     skeys = ['count', 'mean', 'mb', 'me', 'rmse', 'r']
     label = '\n'.join(str(statdf[yhatkey][skeys].round(2)).split('\n')[:-1])
     ax = cvdf.plot.hexbin(
         x='obs', y=yhatkey, gridsize=100, extent=(vmin, vmax, vmin, vmax),
         mincnt=1, cmap='viridis'
     )
-    ax.set(xlabel=f'obs [{ds.obs.units}]', ylabel=f'{yhatkey} [{ds.obs.units}]')
+    ax.set(xlabel=f'obs [{units}]', ylabel=f'{yhatkey} [{units}]')
     ax.text(vmax, vmin, label, ha='right', bbox=dict(facecolor='w', edgecolor='k'))
-    ax.figure.savefig(ncpath + '_' + yhatkey + '.png')
+    ax.figure.savefig(figpath + '_' + yhatkey + '.png')

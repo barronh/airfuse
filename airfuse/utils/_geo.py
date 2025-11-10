@@ -129,7 +129,7 @@ def to_geopandas(
                 except Exception as e:
                     nbadpoly.append(e)
             if len(nbadpoly) > 0:
-                logger.warn(
+                logger.warning(
                     f'*Lost {len(nbadpoly)} poly for {names[pi]}: {nbadpoly}'
                 )
         mpolys.append(dict(

@@ -4,11 +4,12 @@
 import os
 import numpy as np
 import pandas as pd
-import xarray as xr
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_predict
 from airfuse import dnr
 from airfuse.layers import naqfc
 from airfuse.points import airnowapi, purpleairrsig
-from airfuse.utils import fuse, df2ds, to_geojson
+from airfuse.utils import addattrs, to_geojson
 import logging
 
 # %
@@ -17,11 +18,6 @@ import logging
 # - spc : pm25 or ozone
 # - nowcast : True or False
 # - date : datetime with hour precision
-# - yhatsfx : model prediction suffix
-#   - mbc_yhatsfx : multiplicative corrected model
-#   - abc_yhatsfx : additive corrected model
-#   - bc_yhatsfx : average of corrected models after removing negatives
-# - cvsfx : suffix for cross-validatin of model
 # - ncpath : Path for output to be saved
 # - n_jobs : Number of threads to simultaneiously do calculations
 spc = 'pm25'
@@ -29,10 +25,9 @@ nowcast = False
 # date = pd.to_datetime('2025-01-09T12')
 lag = pd.to_timedelta('1h')
 date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
-yhatsfx = '_gdnr'
-cvsfx = f'{yhatsfx}_cv'
-ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.nc'
-logpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.log'
+ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_PM25.nc'
+jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_PM25.geojson'
+logpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_PM25.log'
 n_jobs = 32
 
 os.makedirs(os.path.dirname(logpath), exist_ok=True)
@@ -83,7 +78,7 @@ pamindist = 2500
 logging.info('Configure Grouped DNR')
 logging.info(f' - AirNow Min Dist: {anmindist}m')
 logging.info(f' - PurpleAir Min Dist: {pamindist}m')
-gdnr = dnr.GroupedDelaunayNeighborsRegressor(
+regr = dnr.BCGroupedDelaunayNeighborsRegressor(
     delaunay_weights="only", n_neighbors=30,
     weights={
         0: lambda d: np.maximum(anmindist, d)**-2,
@@ -93,8 +88,19 @@ gdnr = dnr.GroupedDelaunayNeighborsRegressor(
 
 # Make Predictions at model centers
 logging.info('Start fitting, cross-validation, and predictions')
+kf = KFold(random_state=42, n_splits=10, shuffle=True)
+xkeys = ['x', 'y', 'mod']
+fitkwds = dict(groups=obdf['groups'], sample_weight=obdf['sample_weight'])
+obdf['mod_bc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf, params=fitkwds)
+
+# Fit the full model
+regr.fit(obdf[xkeys], obdf['obs'], **fitkwds)
+obdf['mod_bc'] = regr.predict(obdf[xkeys])
+
 tgtdf = modvar.to_dataframe(name='mod')
-fuse(tgtdf, obdf, obdnr=gdnr, yhatsfx=yhatsfx, cvsfx=cvsfx)
+tgtX = tgtdf.index.to_frame()[['x', 'y']]
+tgtX['mod'] = tgtdf['mod']
+tgtdf['mod_bc'] = regr.predict(tgtX)
 
 # %
 # Save Outputs
@@ -102,9 +108,17 @@ fuse(tgtdf, obdf, obdnr=gdnr, yhatsfx=yhatsfx, cvsfx=cvsfx)
 
 # Save the results as a NetCDF file
 logging.info('Saving result as NetCDF')
-tgtds = df2ds(
-    tgtdf, obdf, yhatsfx=yhatsfx, cvsfx=cvsfx, crs_proj4=modvar.crs_proj4
-)
+
+tgtds = tgtdf.to_xarray()
+tgtds['obsx'] = obdf['x'].to_xarray()
+tgtds['obsy'] = obdf['y'].to_xarray()
+tgtds['obs'] = obdf['obs'].to_xarray()
+tgtds['groups'] = obdf['groups'].to_xarray()
+tgtds['sample_weight'] = obdf['sample_weight'].to_xarray()
+tgtds['mod_bc_cv'] = obdf['mod_bc_cv'].to_xarray()
+tgtds['mod'].attrs.update(modvar.attrs)
+addattrs(tgtds, units=modvar.units)
+tgtds.attrs['crs_proj4'] = modvar.crs_proj4
 tgtds.to_netcdf(ncpath)
 
 # Save the results as a GeoJSON file
@@ -117,13 +131,13 @@ edges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
 
 if nowcast:
     colors = ['#00e300', '#fefe00', '#fe7e00', '#fe0000', '#8e3f96', '#7e0023']
-    edges = [0, 12, 35.5, 55.5, 150.5, 250.5, 255]  # old pm25 aqi cutpoints EPA 454/B-18-007 September 2018
-    edges = [0, 9, 35.5, 55.5, 125.5, 225.5, 255]  # new pm25 aqi cutpoints EPA-454/B-24-002 May 2024
+    # old pm25 aqi cutpoints EPA 454/B-18-007 September 2018
+    edges = [0, 12, 35.5, 55.5, 150.5, 250.5, 255]
+    # new pm25 aqi cutpoints EPA-454/B-24-002 May 2024
+    edges = [0, 9, 35.5, 55.5, 125.5, 225.5, 255]
 
-ds = xr.open_dataset(ncpath)
-jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z{yhatsfx}.geojson'
 to_geojson(
-    jpath, x=ds.x, y=ds.y, z=ds[f'bc{yhatsfx}'][0], crs=ds.crs_proj4,
+    jpath, x=tgtds.x, y=tgtds.y, z=tgtds['mod_bc'][0], crs=tgtds.crs_proj4,
     edges=edges, colors=colors, under='#eeeeee', over=colors[-1],
-    description=ds.description
+    description=tgtds.description
 )
