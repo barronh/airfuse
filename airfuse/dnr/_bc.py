@@ -150,8 +150,8 @@ class _BCRegressor:
         _X = X[:, :-1]
         raw_mod = X[:, -1:]
         _y = super().predict(_X)
-        obs_dnr = _y[:, 1:]
-        mod_dnr = _y[:, :1]
+        obs_dnr = store['obs_dnr'] = _y[:, 1:]
+        mod_dnr = store['mod_dnr'] = _y[:, :1]
         store = {}
         if 'mod_abc' in needs:
             abc = store['mod_abc'] = raw_mod + obs_dnr - mod_dnr
