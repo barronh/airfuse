@@ -156,13 +156,13 @@ class _BCRegressor:
             store['mod_bbc'] = (indiv * w).sum(-1) / w.sum(-1)
 
         if 'w_obs_dnr' in returns:
-            store['w_obs_dnr'] = w[:, 0]
+            store['w_obs_dnr'] = w[:, :1]
         if 'w_mod_abc' in returns:
-            store['w_mod_abc'] = w[:, 1]
+            store['w_mod_abc'] = w[:, 1:2]
         if 'w_mod_mbc' in returns:
-            store['w_mod_mbc'] = w[:, 2]
+            store['w_mod_mbc'] = w[:, 2:3]
         if 'w_mod_ambc' in returns:
-            store['w_mod_ambc'] = w[:, 3]
+            store['w_mod_ambc'] = w[:, 3:]
 
         if len(returns) == 1:
             out = store[returns[0]]
