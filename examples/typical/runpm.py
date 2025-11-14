@@ -22,9 +22,9 @@ import logging
 # - n_jobs : Number of threads to simultaneiously do calculations
 spc = 'pm25'
 nowcast = False
-# date = pd.to_datetime('2025-01-09T12')
 lag = pd.to_timedelta('1h')
 date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
+# date = pd.to_datetime('2025-01-09T12')
 ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_PM25.nc'
 jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_PM25.geojson'
 logpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_PM25.log'
