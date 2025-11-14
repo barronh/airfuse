@@ -153,7 +153,10 @@ class _BCRegressor:
             indiv = np.concatenate([store[k] for k in keys], axis=-1)
             serr = self._serrkn.predict(_X)
             w = serr**-1
-            store['mod_bbc'] = (indiv * w).sum(-1) / w.sum(-1)
+            store['mod_bbc'] = (
+                (indiv * w).sum(-1, keepdims=True)
+                / w.sum(-1, keepdims=True)
+            )
 
         if 'w_obs_dnr' in returns:
             store['w_obs_dnr'] = w[:, :1]
