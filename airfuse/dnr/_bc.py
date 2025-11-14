@@ -9,23 +9,43 @@ from ._core import _fdnr_parameter_constraints
 
 
 class _BCRegressor:
+    _needs = {
+        'obs': ('obs_dnr', ),
+        'abc': ('obs_dnr', 'mod_dnr', 'mod_abc',),
+        'mbc': ('obs_dnr', 'mod_dnr', 'mod_mbc',),
+        'ambc': ('obs_dnr', 'mod_dnr', 'mod_mbc', 'mod_abc', 'mod_ambc',),
+        'individual': (
+            'obs_dnr', 'mod_dnr', 'mod_mbc', 'mod_abc', 'mod_ambc',
+        ),
+        'best': (
+            'mod_dnr',
+            'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
+            'w_obs_dnr', 'w_mod_abc', 'w_mod_mbc', 'w_mod_ambc',
+            'mod_bbc'
+        ),
+        'debug': (
+            'mod_dnr',
+            'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
+            'w_obs_dnr', 'w_mod_abc', 'w_mod_mbc', 'w_mod_ambc',
+            'mod_bbc'
+        ),
+    }
+    _returns = {
+        'obs': ('obs_dnr', ),
+        'abc': ('mod_abc',),
+        'mbc': ('mod_mbc',),
+        'ambc': ('mod_ambc',),
+        'individual': ('obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',),
+        'best': ('mod_bbc',),
+        'debug': (
+            'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
+            'w_obs_dnr', 'w_mod_mbc', 'w_mod_abc', 'w_mod_ambc',
+            'mod_bbc'
+        ),
+    }
     @property
     def feature_names_out_(self):
-        return {
-            'best': ('mod_bbc',),
-            'obs': ('obs_dnr',),
-            'mod': ('mod_dnr',),
-            'abc': ('mod_abc',),
-            'mbc': ('mod_mbc',),
-            'bc': ('mod_bc',),
-            'individual': ('obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc'),
-            'all': ('obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc', 'mod_bbc'),
-            'debug': (
-                'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
-                'w_obs_dnr', 'w_mod_abc', 'w_mod_mbc', 'w_mod_ambc',
-                'mod_bbc'
-            ),
-        }[self.how]
+        return self._returns[self.how]
 
     def fit(self, X, y, sample_weight=None, groups=None):
         """
@@ -109,50 +129,16 @@ class _BCRegressor:
         """
         import numpy as np
         how = self.how
-        _needs = {
-            'obs': ('obs_dnr', ),
-            'abc': ('obs_dnr', 'mod_dnr', 'mod_abc',),
-            'mbc': ('obs_dnr', 'mod_dnr', 'mod_mbc',),
-            'ambc': ('obs_dnr', 'mod_dnr', 'mod_mbc', 'mod_abc', 'mod_ambc',),
-            'individual': (
-                'obs_dnr', 'mod_dnr', 'mod_mbc', 'mod_abc', 'mod_ambc',
-            ),
-            'best': (
-                'mod_dnr',
-                'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
-                'w_obs_dnr', 'w_mod_abc', 'w_mod_mbc', 'w_mod_ambc',
-                'mod_bbc'
-            ),
-            'debug': (
-                'mod_dnr',
-                'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
-                'w_obs_dnr', 'w_mod_abc', 'w_mod_mbc', 'w_mod_ambc',
-                'mod_bbc'
-            ),
-        }
-        assert how in _needs
-        needs = _needs[how]
-        _returns = {
-            'obs': ('obs_dnr', ),
-            'abc': ('mod_abc',),
-            'mbc': ('mod_mbc',),
-            'ambc': ('mod_ambc',),
-            'individual': ('obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',),
-            'best': ('mod_bbc'),
-            'debug': (
-                'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
-                'w_obs_dnr', 'w_mod_mbc', 'w_mod_abc', 'w_mod_ambc',
-                'mod_bbc'
-            ),
-        }
-        returns = _returns[how]
+        assert how in self._needs
+        needs = self._needs[how]
+        returns = self._returns[how]
         X = np.asarray(X)
         _X = X[:, :-1]
         raw_mod = X[:, -1:]
         _y = super().predict(_X)
+        store = {}
         obs_dnr = store['obs_dnr'] = _y[:, 1:]
         mod_dnr = store['mod_dnr'] = _y[:, :1]
-        store = {}
         if 'mod_abc' in needs:
             abc = store['mod_abc'] = raw_mod + obs_dnr - mod_dnr
         if 'mod_mbc' in needs:
@@ -163,7 +149,7 @@ class _BCRegressor:
             ambc[:] = np.where(abc < 0, mbc, ambc)
 
         if 'mod_bbc' in needs:
-            keys = _returns['individual']
+            keys = self._returns['individual']
             indiv = np.concatenate([store[k] for k in keys], axis=-1)
             serr = self._serrkn.predict(_X)
             w = serr**-1
