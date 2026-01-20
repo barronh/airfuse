@@ -3,6 +3,7 @@ __all__ = [
     'BCGroupedDelaunayNeighborsRegressor',
     'BCFusedDelaunayNeighborsRegressor'
 ]
+
 from ._core import DelaunayNeighborsRegressor, \
     GroupedDelaunayNeighborsRegressor
 from ._core import _fdnr_parameter_constraints
@@ -43,9 +44,10 @@ class _BCRegressor:
             'mod_bbc'
         ),
     }
+
     @property
     def feature_names_out_(self):
-        return self._returns[self.how]
+        return list(self._returns[self.how])
 
     def fit(self, X, y, sample_weight=None, groups=None):
         """
@@ -115,7 +117,7 @@ class _BCRegressor:
         """
         self.how = how
 
-    def predict(self, X):
+    def predict(self, X, floor=0):
         """
         Arguments
         ---------
@@ -140,13 +142,14 @@ class _BCRegressor:
         obs_dnr = store['obs_dnr'] = _y[:, 1:]
         mod_dnr = store['mod_dnr'] = _y[:, :1]
         if 'mod_abc' in needs:
-            abc = store['mod_abc'] = raw_mod + obs_dnr - mod_dnr
+            abc = np.maximum(floor, raw_mod + obs_dnr - mod_dnr)
+            store['mod_abc'] = abc
         if 'mod_mbc' in needs:
-            mbc = store['mod_mbc'] = raw_mod * obs_dnr / mod_dnr
+            mbc = np.maximum(floor, raw_mod * obs_dnr / mod_dnr)
+            store['mod_mbc'] = mbc
 
         if 'mod_ambc' in needs:
-            store['mod_ambc'] = ambc = np.mean([abc, mbc], axis=0)
-            ambc[:] = np.where(abc < 0, mbc, ambc)
+            store['mod_ambc'] = np.mean([abc, mbc], axis=0)
 
         if 'mod_bbc' in needs:
             keys = self._returns['individual']
