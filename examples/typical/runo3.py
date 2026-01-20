@@ -54,12 +54,13 @@ modvar = mod.get(date)
 # Get observations that match the model space/time coordinates
 logging.info('Loading AirNow')
 obdf = airnowapi(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
-print(obdf.shape[0])
+
+anmindist = 1250 # approximately 1/4 grid cell in meters 
 # Create a regressor specifying k nieghbors, distance function, and
 # parallel processing.
 regr = dnr.BCDelaunayNeighborsRegressor(
     n_jobs=n_jobs, n_neighbors=30,
-    weights=lambda d: np.maximum(d, 1e-10)**-2
+    weights=lambda d: np.maximum(d, anmindist)**-2
 )
 
 logging.info('Start fitting and cross-validation')
@@ -67,18 +68,18 @@ logging.info('Start fitting and cross-validation')
 # Perform Cross validation
 kf = KFold(random_state=42, n_splits=10, shuffle=True)
 xkeys = ['x', 'y', 'mod']
-obdf['mod_bc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf)
+obdf['mod_bbc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf)
 
 # Fit the full model
 regr.fit(obdf[xkeys], obdf['obs'])
-obdf['mod_bc'] = regr.predict(obdf[xkeys])
+obdf['mod_bbc'] = regr.predict(obdf[xkeys])
 
 logging.info('Start model applicaiton')
 # Make Predictions at model centers
 tgtdf = modvar.to_dataframe(name='mod')
 tgtX = tgtdf.index.to_frame()[['x', 'y']]
 tgtX['mod'] = tgtdf['mod']
-tgtdf['mod_bc'] = regr.predict(tgtX)
+tgtdf['mod_bbc'] = regr.predict(tgtX)
 
 # %
 # Save Outputs
@@ -91,7 +92,7 @@ tgtds = tgtdf.to_xarray()
 tgtds['obsx'] = obdf['x'].to_xarray()
 tgtds['obsy'] = obdf['y'].to_xarray()
 tgtds['obs'] = obdf['obs'].to_xarray()
-tgtds['mod_bc_cv'] = obdf['mod_bc_cv'].to_xarray()
+tgtds['mod_bbc_cv'] = obdf['mod_bbc_cv'].to_xarray()
 tgtds['mod'].attrs.update(modvar.attrs)
 addattrs(tgtds, units=modvar.units)
 tgtds.attrs['crs_proj4'] = modvar.crs_proj4
@@ -99,16 +100,20 @@ tgtds.to_netcdf(ncpath)
 
 # Save the results as a GeoJSON file
 logging.info('Saving result as GeoJSON')
-colors = [
-    '#00fe00', '#fefe80', '#fefe00', '#fbbe43', '#fe8000', '#fe0000'
-]  # 6 colors beteen 7 edges
-edges = [0, 60, 80, 100, 112, 125, 1000]
+
 if nowcast:
+    # EPA AQI Color Scale
     colors = ['#00e300', '#fefe00', '#fe7e00', '#fe0000', '#8e3f96', '#7e0023']
     edges = [0, 54, 70, 85, 105, 200, 255]  # ozone aqi cutpoints
+else:
+    # AirNowTech 1h Color Scale
+    colors = [
+        '#00fe00', '#fefe80', '#fefe00', '#fbbe43', '#fe8000', '#fe0000'
+    ]  # 6 colors beteen 7 edges
+    edges = [0, 60, 80, 100, 112, 125, 1000]
 
 to_geojson(
-    jpath, x=tgtds.x, y=tgtds.y, z=tgtds['mod_bc'][0], crs=tgtds.crs_proj4,
+    jpath, x=tgtds.x, y=tgtds.y, z=tgtds['mod_bbc'][0], crs=tgtds.crs_proj4,
     edges=edges, colors=colors, under='#eeeeee', over=colors[-1],
     description=tgtds.description
 )

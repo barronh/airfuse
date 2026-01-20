@@ -49,18 +49,18 @@ regr = dnr.BCDelaunayNeighborsRegressor(
 # Perform Cross validation
 kf = KFold(random_state=42, n_splits=10, shuffle=True)
 xkeys = ['x', 'y', 'mod']
-obdf['mod_bc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf)
+obdf['mod_bbc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf)
 
 # Fit the full model
 regr.fit(obdf[xkeys], obdf['obs'])
-obdf['mod_bc'] = regr.predict(obdf[xkeys])
+obdf['mod_bbc'] = regr.predict(obdf[xkeys])
 
 # %
 # Make Performance Plots
 # ----------------------
 
 units = 'micrograms/m**3'
-yhatkeys = ['mod', 'mod_bc_cv', 'mod_bc']
+yhatkeys = ['mod', 'mod_bbc_cv', 'mod_bbc']
 cvdf = obdf[['obs'] + yhatkeys]
 statdf = mpestats(cvdf)
 for yhatkey in yhatkeys:

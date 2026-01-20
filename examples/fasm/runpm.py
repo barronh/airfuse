@@ -92,16 +92,17 @@ logging.info('Start fitting, cross-validation, and predictions')
 kf = KFold(random_state=42, n_splits=10, shuffle=True)
 xkeys = ['x', 'y', 'mod']
 fitkwds = dict(groups=obdf['groups'], sample_weight=obdf['sample_weight'])
-obdf['mod_bc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf, params=fitkwds)
+obdf['mod_bbc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf, params=fitkwds)
 
 # Fit the full model
 regr.fit(obdf[xkeys], obdf['obs'], **fitkwds)
-obdf['mod_bc'] = regr.predict(obdf[xkeys])
+obdf['mod_bbc'] = regr.predict(obdf[xkeys])
 
 tgtdf = modvar.to_dataframe(name='mod')
 tgtX = tgtdf.index.to_frame()[['x', 'y']]
 tgtX['mod'] = tgtdf['mod']
-tgtdf['mod_bc'] = regr.predict(tgtX)
+# regr.set_how('debug')
+tgtdf[regr.feature_names_out_] = regr.predict(tgtX)
 
 # %
 # Save Outputs
@@ -116,7 +117,7 @@ tgtds['obsy'] = obdf['y'].to_xarray()
 tgtds['obs'] = obdf['obs'].to_xarray()
 tgtds['groups'] = obdf['groups'].to_xarray()
 tgtds['sample_weight'] = obdf['sample_weight'].to_xarray()
-tgtds['mod_bc_cv'] = obdf['mod_bc_cv'].to_xarray()
+tgtds['mod_bbc_cv'] = obdf['mod_bbc_cv'].to_xarray()
 tgtds['mod'].attrs.update(modvar.attrs)
 addattrs(tgtds, units=modvar.units)
 tgtds.attrs['crs_proj4'] = modvar.crs_proj4
@@ -138,7 +139,7 @@ if nowcast:
     edges = [0, 9, 35.5, 55.5, 125.5, 225.5, 255]
 
 to_geojson(
-    jpath, x=tgtds.x, y=tgtds.y, z=tgtds['mod_bc'][0], crs=tgtds.crs_proj4,
+    jpath, x=tgtds.x, y=tgtds.y, z=tgtds['mod_bbc'][0], crs=tgtds.crs_proj4,
     edges=edges, colors=colors, under='#eeeeee', over=colors[-1],
     description=tgtds.description
 )
