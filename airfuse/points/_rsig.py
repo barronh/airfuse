@@ -6,6 +6,28 @@ class rsig_obs(obs):
         self, spc, bbox=None, nowcast=False, src='airnow',
         sitekey='site_name', inroot='inputs'
     ):
+        """Initialize rsig_obs object
+
+        Arguments
+        ---------
+        spc : str
+            pm25, ozone, co, no2, or any other RSIG AirNow species
+        bbox : list
+            Bounding box in decimal degrees [swlon, swlat, nelon, nelat]
+        nowcast : bool
+            If True, species will be nowcasted. If False, return hourly result
+        src : str
+            airnow, aqs, or other RSIG source of point observations
+        sitekey : str
+            Lowercase name of field in RSIG ascii output (ignore unit) that
+            identifies the site.
+        inroot : str
+            Path to store cached inputs.
+
+        Returns
+        -------
+        None
+        """
         super().__init__(
             spc=spc, bbox=bbox, nowcast=nowcast,
             sitekey=sitekey, inroot=inroot
@@ -72,6 +94,23 @@ class airnowrsig(rsig_obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, inroot='inputs'
     ):
+        """Initialize airnowrsig object
+
+        Arguments
+        ---------
+        spc : str
+            pm25, ozone, co, no2, or any other RSIG AirNow species
+        bbox : list
+            Bounding box in decimal degrees [swlon, swlat, nelon, nelat]
+        nowcast : bool
+            If True, species will be nowcasted. If False, return hourly result
+        inroot : str
+            Path to store cached inputs.
+
+        Returns
+        -------
+        None
+        """
         super().__init__(
             spc, src='airnow', bbox=bbox, nowcast=nowcast, inroot=inroot
         )
@@ -82,6 +121,34 @@ class purpleairrsig(rsig_obs):
         self, spc, bbox=None, nowcast=False, inroot='inputs',
         dust='ignore', api_key=None
     ):
+        """Initialize airnowrsig object
+
+        Arguments
+        ---------
+        spc : str
+            pm25, ozone, co, no2, or any other RSIG AirNow species
+        bbox : list
+            Bounding box in decimal degrees [swlon, swlat, nelon, nelat]
+        nowcast : bool
+            If True, species will be nowcasted. If False, return hourly result
+        inroot : str
+            Path to store cached inputs.
+        dust : str
+            Choice on how to treat dusty measurements: ignore, exclude, correct
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        The dust option affects rows where the count of small particles (0.3um)
+        are less than 190 times the large particles (5um). The reporting of
+        small and large particles is not complete, so some records have nan for
+        the ratio. The nans are currently treated as not greater than 190 and,
+        therefore, as dusty.
+        """
+
         import os
         super().__init__(
             spc, src='purpleair', bbox=bbox, nowcast=nowcast,
@@ -102,6 +169,8 @@ class purpleairrsig(rsig_obs):
     def load(self, date):
         import pandas as pd
         import numpy as np
+        import logging
+        logger = logging.getLogger('airfuse.purpleairrsig')
         df = super().load(date, 'purpleair.pm25_corrected')
         date = pd.to_datetime(date)
         df['time'] = df['time'].dt.floor('1h')
@@ -126,7 +195,8 @@ class purpleairrsig(rsig_obs):
             df = pd.merge(df, dustdf.reset_index(), how='inner')
             nmerg = df.shape[0]
             if norig != nmerg:
-                print('WARN:: Records count changed during merge')
+                wmsg = f'Records count changed during merge {norig} to {nmerg}'
+                logger.warning(wmsg)
             if self.dust == 'exclude':
                 # Dropping nans by default
                 # nan > 190 is False, and not False is true.
@@ -143,7 +213,7 @@ class purpleairrsig(rsig_obs):
                 df.loc[didx, 'obs'] = df.loc[didx, 'obs'] * 5.6
                 msg = f'{nrem} ({nrem / norig:.1%}) monitors multiplied by 5.6'
             df.drop('small_to_large', axis=1, inplace=True)
-            print(msg)
+            logger.info(msg)
 
         return df.query('obs > 0.0 and obs < 1000.')  # add constraint
 

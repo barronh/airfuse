@@ -6,6 +6,36 @@ class _fasm(obs):
         self, spc, bbox=None, nowcast=False,
         sitekey='site_name', inroot='inputs', fasmcfgpath=None
     ):
+        """Initialize _fasm object
+
+        Arguments
+        ---------
+        spc : str
+            pm25, ozone, co, no2, or any other RSIG AirNow species
+        bbox : list
+            Bounding box in decimal degrees [swlon, swlat, nelon, nelat]
+        nowcast : bool
+            If True, species will be nowcasted. If False, return hourly result
+        sitekey : str
+            Lowercase name of field in RSIG ascii output (ignore unit) that
+            identifies the site.
+        inroot : str
+            Path to store cached inputs.
+        fasmcfgpath : str
+            Path to fasm configuration path (see Notes). Defaults to
+            ./fasm.json or ~/fasm.json
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        The fasmcfgpath must point to a json file where the keys are urls for
+        three files: "purpleaircsv" is the pa.csv file, "excludejson" is the
+        path to the actively excluded sites, "airnowjson" is the a geojson
+        that has airnow features.
+        """
         import os
         import json
         assert spc == 'pm25'
@@ -60,6 +90,8 @@ class purpleairfasm(_fasm):
         import io
         import requests
         import pandas as pd
+        import logging
+        logger = logging.getLogger('airfuse.points.purpleairfasm')
         purl = self.urls['purpleaircsv']
         eurl = self.urls['excludejson']
         with requests.get(eurl) as r:
@@ -81,7 +113,7 @@ class purpleairfasm(_fasm):
         )
         keepcols = ['time', 'longitude', 'latitude', 'site_name']
         keepcols += ['raw', 'nowcast']
-        print(keepidx.mean())
+        logger.info(f'Keeping {keepidx.mean():.2%} of obs')
         return df.loc[keepidx, keepcols].copy()
 
 
