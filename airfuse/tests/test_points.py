@@ -89,8 +89,10 @@ def test_get_airnowrsig_ozone_hourly():
 @pytest.mark.skipif(not _haspakey, reason="requires ~/.purpleairkey")
 def test_get_purpleairrsig_pm25_hourly():
     opts = dict(spc='pm25', nowcast=False, bbox=_bbox)
+    df = _test_purpleairrsig(dust='ignore', drop_outliers=False, **opts)
     igdf = _test_purpleairrsig(dust='ignore', **opts)
     exdf = _test_purpleairrsig(dust='exclude', **opts)
+    assert df.shape[0] > igdf.shape[0]
     assert igdf.shape[0] > exdf.shape[0]
 
 

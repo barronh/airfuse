@@ -119,7 +119,7 @@ class airnowrsig(rsig_obs):
 class purpleairrsig(rsig_obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, inroot='inputs',
-        dust='ignore', api_key=None
+        dust='ignore', drop_outliers=True, api_key=None
     ):
         """Initialize airnowrsig object
 
@@ -135,7 +135,12 @@ class purpleairrsig(rsig_obs):
             Path to store cached inputs.
         dust : str
             Choice on how to treat dusty measurements: ignore, exclude, correct
+        drop_outliers : bool
+            If True, drop outliers using maxdist=100km (see utils.buddycheck)
+        api_key : str
+            PurpleAir API key
 
+        outilers : str or func
         Returns
         -------
         None
@@ -148,7 +153,6 @@ class purpleairrsig(rsig_obs):
         the ratio. The nans are currently treated as not greater than 190 and,
         therefore, as dusty.
         """
-
         import os
         super().__init__(
             spc, src='purpleair', bbox=bbox, nowcast=nowcast,
@@ -165,10 +169,12 @@ class purpleairrsig(rsig_obs):
         self._rsigopts['purpleair_kw'] = dict(api_key=api_key)
         assert dust in ('exclude', 'correct', 'ignore')
         self.dust = dust
+        self.drop_outliers = drop_outliers
 
     def load(self, date):
         import pandas as pd
         import numpy as np
+        from ..utils import buddycheck
         import logging
         logger = logging.getLogger('airfuse.purpleairrsig')
         df = super().load(date, 'purpleair.pm25_corrected')
@@ -203,7 +209,7 @@ class purpleairrsig(rsig_obs):
                 didx = df.query('~(small_to_large > 190)').index
                 nrem = didx.shape[0]
                 df.drop(didx, axis=0, inplace=True)
-                msg = f'{nrem} ({nrem / norig:.1%}) monitors removed'
+                msg = f'{nrem} ({nrem / norig:.1%}) sensors removed'
                 msg += ' due to possible dust (0.3um / 5um less than 190).'
             elif self.dust == 'correct':
                 # nan defaults to false, so not corrected
@@ -211,10 +217,27 @@ class purpleairrsig(rsig_obs):
                 didx = df.query(qstr).index
                 nrem = didx.shape[0]
                 df.loc[didx, 'obs'] = df.loc[didx, 'obs'] * 5.6
-                msg = f'{nrem} ({nrem / norig:.1%}) monitors multiplied by 5.6'
+                msg = f'{nrem} ({nrem / norig:.1%}) sensors multiplied by 5.6'
             df.drop('small_to_large', axis=1, inplace=True)
             logger.info(msg)
 
+        if self.drop_outliers:
+            # Apply Buddy Check using max distance
+            X = pd.DataFrame(dict(
+                latr=np.radians(df['latitude']),
+                lonr=np.radians(df['longitude'])
+            ), index=df.index)[['latr', 'lonr']]
+            y = df['obs']
+            # haversine returns distance in radians, so using spherical earth
+            # to approximate 100km.
+            maxdist = 100. / 6371
+            keep = buddycheck(X, y, metric='haversine', maxdist=maxdist)
+            nkeep = keep.sum()
+            norig = keep.shape[0]
+            nrem = norig - nkeep
+            msg = f'{nrem} ({nrem / norig:.1%}) sensors removed'
+            logger.info(msg)
+            df = df.loc[keep]  # only keep the non-outliers
         return df.query('obs > 0.0 and obs < 1000.')  # add constraint
 
     def pair(self, date, modvar, proj=None, qstr=None):
