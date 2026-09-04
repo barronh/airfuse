@@ -52,7 +52,6 @@ class rsig_obs(obs):
             If nowcast, load 12 hours of data.
             Otherwise, load 1h.
         """
-        import numpy as np
         import pandas as pd
         import pyrsig
         src = self.src
@@ -63,30 +62,20 @@ class rsig_obs(obs):
             key = f'{src}.{spc}'
         wdir = date.strftime(f'{self.inroot}/rsig/%Y/%m/%d')
         api = pyrsig.RsigApi(workdir=wdir, **self._rsigopts)
-        if self.nowcast:
-            dhrs = np.arange(0, -12, -1)
-        else:
-            dhrs = [0]
-        dfs = []
-        for dh in dhrs:
-            sdate = date + pd.to_timedelta(dh, unit='h')
-            edate = sdate + pd.to_timedelta('3599s')
-            df = api.to_dataframe(
-                key, bdate=sdate, edate=edate,
-                unit_keys=False, parse_dates=True
-            )
-            dfs.append(df)
-        if len(dhrs) > 1:
-            df = pd.concat(dfs, ignore_index=True)
-        else:
-            df = dfs[0]
 
+        sdate = date
+        edate = sdate + pd.to_timedelta('3599s')
+        df = api.to_dataframe(
+            key, bdate=sdate, edate=edate,
+            unit_keys=False, parse_dates=True
+        )
         df.columns = [k.lower() for k in df.columns]
         renamer = {
             self.spc: 'obs', 'pm25_hourly': 'obs', 'pm25_corrected': 'obs',
             'pm25_corrected_hourly': 'obs'
         }
-        df = df.rename(columns=renamer).drop(['timestamp'], axis=1)
+        df.rename(columns=renamer, inplace=True)
+        df = df.drop(['timestamp'], axis=1)
         return df
 
 
@@ -119,7 +108,8 @@ class airnowrsig(rsig_obs):
 class purpleairrsig(rsig_obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, inroot='inputs',
-        dust='ignore', drop_outliers=True, api_key=None
+        dust='ignore', drop_outliers=True, min_valid=0.0, max_valid=1000.0,
+        api_key=None
     ):
         """Initialize airnowrsig object
 
@@ -137,6 +127,10 @@ class purpleairrsig(rsig_obs):
             Choice on how to treat dusty measurements: ignore, exclude, correct
         drop_outliers : bool
             If True, drop outliers using maxdist=100km (see utils.buddycheck)
+        min_valid : float
+            Values less than this are removed as invalid
+        max_valid : float
+            Values greater than or equal to this are removed as invalid
         api_key : str
             PurpleAir API key
 
@@ -169,6 +163,8 @@ class purpleairrsig(rsig_obs):
         self._rsigopts['purpleair_kw'] = dict(api_key=api_key)
         assert dust in ('exclude', 'correct', 'ignore')
         self.dust = dust
+        self.min_valid = min_valid
+        self.max_valid = max_valid
         self.drop_outliers = drop_outliers
 
     def load(self, date):
@@ -176,7 +172,7 @@ class purpleairrsig(rsig_obs):
         import numpy as np
         from ..utils import buddycheck
         import logging
-        logger = logging.getLogger('airfuse.purpleairrsig')
+        logger = logging.getLogger(f'airfuse.{self.__class__}.load')
         df = super().load(date, 'purpleair.pm25_corrected')
         date = pd.to_datetime(date)
         df['time'] = df['time'].dt.floor('1h')
@@ -238,7 +234,9 @@ class purpleairrsig(rsig_obs):
             msg = f'{nrem} ({nrem / norig:.1%}) sensors removed'
             logger.info(msg)
             df = df.loc[keep]  # only keep the non-outliers
-        return df.query('obs > 0.0 and obs < 1000.')  # add constraint
+        maxv = self.max_valid
+        minv = self.min_valid
+        return df.query(f'obs >= {minv} and obs < {maxv}')  # add constraint
 
     def pair(self, date, modvar, proj=None, qstr=None):
         import numpy as np
