@@ -10,6 +10,7 @@ from ._core import _fdnr_parameter_constraints
 
 
 class _BCRegressor:
+    # identifies intermediates to be calculated internally for the regressor
     _needs = {
         'obs': ('obs_dnr', ),
         'abc': ('obs_dnr', 'mod_dnr', 'mod_abc',),
@@ -21,16 +22,23 @@ class _BCRegressor:
         'best': (
             'mod_dnr',
             'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
-            'w_obs_dnr', 'w_mod_abc', 'w_mod_mbc', 'w_mod_ambc',
+            'obs_dnr_w', 'mod_abc_w', 'mod_mbc_w', 'mod_ambc_w',
+            'mod_bbc'
+        ),
+        'all': (
+            'mod_dnr',
+            'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
+            'obs_dnr_w', 'mod_abc_w', 'mod_mbc_w', 'mod_ambc_w',
             'mod_bbc'
         ),
         'debug': (
             'mod_dnr',
             'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
-            'w_obs_dnr', 'w_mod_abc', 'w_mod_mbc', 'w_mod_ambc',
+            'obs_dnr_w', 'mod_abc_w', 'mod_mbc_w', 'mod_ambc_w',
             'mod_bbc'
         ),
     }
+    # identifies results to be returned to the user
     _returns = {
         'obs': ('obs_dnr', ),
         'abc': ('mod_abc',),
@@ -40,7 +48,11 @@ class _BCRegressor:
         'best': ('mod_bbc',),
         'debug': (
             'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
-            'w_obs_dnr', 'w_mod_mbc', 'w_mod_abc', 'w_mod_ambc',
+            'obs_dnr_w', 'mod_mbc_w', 'mod_abc_w', 'mod_ambc_w',
+            'mod_bbc'
+        ),
+        'all': (
+            'obs_dnr', 'mod_abc', 'mod_mbc', 'mod_ambc',
             'mod_bbc'
         ),
     }
@@ -81,7 +93,7 @@ class _BCRegressor:
         if y.ndim == 1:
             y = y[:, None]
 
-        if self.how in ('best', 'all'):
+        if self.how in ('best', 'all', 'debug'):
             # Create a cross-validation set of all predictions
             _how = self.how
             self.set_how('individual')
@@ -117,12 +129,24 @@ class _BCRegressor:
         """
         self.how = how
 
+    def predict_dataframe(self, X, floor=0):
+        """
+        Returns predict result with column names. See predict for more details.
+        """
+        import pandas as pd
+        v = self.predict(X, floor=floor)
+        return pd.DataFrame(v, columns=self.feature_names_out_)
+
     def predict(self, X, floor=0):
         """
         Arguments
         ---------
         X : n x 3 array
             X should have n records and 3 columns x, y, initial-estimate
+        floor : float
+            Minimum value to return
+        return_type : str
+            array or pandas
 
         Returns
         -------
@@ -161,14 +185,14 @@ class _BCRegressor:
                 / w.sum(-1, keepdims=True)
             )
 
-        if 'w_obs_dnr' in returns:
-            store['w_obs_dnr'] = w[:, :1]
-        if 'w_mod_abc' in returns:
-            store['w_mod_abc'] = w[:, 1:2]
-        if 'w_mod_mbc' in returns:
-            store['w_mod_mbc'] = w[:, 2:3]
-        if 'w_mod_ambc' in returns:
-            store['w_mod_ambc'] = w[:, 3:]
+        if 'obs_dnr_w' in returns:
+            store['obs_dnr_w'] = w[:, :1]
+        if 'mod_abc_w' in returns:
+            store['mod_abc_w'] = w[:, 1:2]
+        if 'mod_mbc_w' in returns:
+            store['mod_mbc_w'] = w[:, 2:3]
+        if 'mod_ambc_w' in returns:
+            store['mod_ambc_w'] = w[:, 3:]
 
         if len(returns) == 1:
             out = store[returns[0]]
@@ -211,7 +235,7 @@ class BCDelaunayNeighborsRegressor(_BCRegressor, DelaunayNeighborsRegressor):
             ambc: returns where abc is negative, mbc, else mean(abc, mbc)
             individual: returns obs, abc, mbc, ambc - primarily for tuning best
             best: returns weighted obs, abc, mbc, and ambc by CV MSE**-2
-            all: returns idividual + besst
+            all: returns idividual + best
 
         """
         super().__init__(

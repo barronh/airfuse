@@ -233,7 +233,7 @@ class DelaunayNeighborsRegressor(KNeighborsRegressor):
 
         self.delaunay_weights = delaunay_weights
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None, groups=None):
         """Fit the k-nearest neighbors regressor from the training dataset.
 
         Parameters
@@ -242,11 +242,11 @@ class DelaunayNeighborsRegressor(KNeighborsRegressor):
         y : {array-like, sparse matrix} of shape (n_samples,) or \
                 (n_samples, n_outputs)
             Target values.
-
         sample_weight : {array-like, sparse matrix} of shape (n_samples,)
             Row-specific weights (e.g, inverse uncertainty) to be multiplied \
             by the distance based weight from the weight function.
-
+        groups : None
+            Ignored for compatibility with GroupedDelaunayNeighborsRegressor
         Returns
         -------
         self : KNeighborsRegressor
