@@ -25,7 +25,7 @@ spc = 'pm25'
 nowcast = True
 lag = pd.to_timedelta('1h')
 date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
-date = pd.to_datetime('2025-07-15T18')  # Random
+# date = pd.to_datetime('2025-07-15T18')  # Random
 # date = pd.to_datetime('2025-01-09T12')  # LA Fires
 # date = pd.to_datetime('2025-05-13T08')  # Utah Dust storm (run with ignore, correct, exclude)
 dust = 'ignore'
@@ -53,38 +53,61 @@ logger.info(f'logpath={logpath}')
 logger.info(f'n_jobs={n_jobs}')
 
 # %
-# Perform AirFuse
-# ---------------
+# Open Model Instance
+# -------------------
 
 # Open Model Instance
 logger.info('Loading NAQFC')
 mod = naqfc(spc, nowcast=nowcast)
+modvar = mod.get(date)  # Extract a time-slice layer
 
-# Extract a time-slice layer
-modvar = mod.get(date)
+# %
+# Get observations
+# ----------------
+# - match the model space/time coordinates
+# - AirNow is group 0 with a prior weight of 1
+# - PurpleAir is group 1 with a prior weight of 0.25
 
 logger.info('Loading Observations')
-# Get observations that match the model space/time coordinates
+
+logger.info('Loading AirNow')
 andf = airnowapi(spc, nowcast=nowcast).pair(date, modvar, mod.proj)
 andf[['groups', 'sample_weight']] = [0, 1]
 andf['sample_weight'] = andf['sample_weight'].where(andf['obs'] < 1000, .1)
 logger.info(f'- AirNow : groups=0 sample_weight=1 n={andf.shape[0]}')
 
-padf = purpleairrsig(spc, nowcast=nowcast, dust=dust).pair(date, modvar, mod.proj)
-padf[['groups', 'sample_weight']] = [1, 0.25]
-padf['sample_weight'] = padf['sample_weight'].where(padf['obs'] < 1000, .0025)
-padf.query('obs < 1000', inplace=True)
-logger.info(f'- PurpleAir : groups=1 sample_weight=0.25 n={padf.shape[0]}')
+logger.info('Loading PurpleAir')
+try:
+    paobj = purpleairrsig(spc, nowcast=nowcast, dust=dust)
+    padf = paobj.pair(date, modvar, mod.proj)
+    padf[['groups', 'sample_weight']] = [1, 0.25]
+    padf['sample_weight'] = padf['sample_weight'].where(padf['obs'] < 1000, .0025)
+    padf.query('obs < 1000', inplace=True)
+    logger.info(f'- PurpleAir : groups=1 sample_weight=0.25 n={padf.shape[0]}')
+    logger.info('Concatenate AirNow and PurpleAir')
+    obdf = pd.concat([andf, padf], ignore_index=True)
+except Exception as e:
+    msg = f'AirNow only; getting PurpleAir failed: {str(e)}'
+    logger.warn(msg)
+    obdf = andf
+logger.info(f'- Obs : n={obdf.shape[0]}')
 
-obdf = pd.concat([andf, padf], ignore_index=True)
-
+# %
+# Configure Regressor
+# -------------------
+# Create a regressor specifying k nieghbors, distance function, and
+# parallel processing. Because Ozone has only airnow obs, the weights
+# function is simple. All obs within a grid are equally close, so not
+# allowing distance closer than 1250m (1/4 of a grid cell) for AirNow
+# and no closer than 2500m (1/2 of a grid cell) for PurpleAir.
+#
 # Perform Fusion Using Grouped DNR
 # - Calculate one surface from pooled weights
 # - Weights calculated separately for groups
 #   - two base functions,
-#   - two Delaunay diagrams and functions
+#   - two Delaunay diagrams
 # - sample_weight will be added "automatically to the fitkwds
-# - groups will be added "automatically to the fitkwds
+# - groups will be added "automatically" to the fitkwds
 anmindist = 1250
 pamindist = 2500
 logger.info('Configure Grouped DNR')
@@ -101,14 +124,25 @@ regr = dnr.BCGroupedDelaunayNeighborsRegressor(
     }, n_jobs=n_jobs
 )
 
-# Make Predictions at model centers
-logger.info('Start fitting, cross-validation, and predictions')
+# %
+# Perform Cross validation
+# ------------------------
+# random_state set for reproducibility
+# n_splits using standard 10-fold cross valdiation
+# shuffle to ensure order of retrieved records does not affect result
+logger.info('Start cross-validation')
 kf = KFold(random_state=42, n_splits=10, shuffle=True)
 xkeys = ['x', 'y', 'mod']
 fitkwds = dict(groups=obdf['groups'], sample_weight=obdf['sample_weight'])
 obdf['mod_bbc_cv'] = cross_val_predict(regr, obdf[xkeys], obdf['obs'], cv=kf, params=fitkwds)
 
-# Fit the full model
+# %
+# Perform Application
+# -------------------
+# 1. Fit the full model,
+# 2. Predict at observational locations
+# 3. Predict at target locations
+
 regr.fit(obdf[xkeys], obdf['obs'], **fitkwds)
 obdf['mod_bbc'] = regr.predict(obdf[xkeys])
 
@@ -139,23 +173,31 @@ tgtds.to_netcdf(ncpath)
 
 # Save the results as a GeoJSON file
 logger.info('Saving result as GeoJson')
+inf = float('inf')
 if nowcast:
     # EPA AQI Color Scale
-    colors = ['#00e300', '#fefe00', '#fe7e00', '#fe0000', '#8e3f96', '#7e0023']
-    # old pm25 aqi cutpoints EPA 454/B-18-007 September 2018
-    edges = [0, 12, 35.5, 55.5, 150.5, 250.5, 255]
-    # new pm25 aqi cutpoints EPA-454/B-24-002 May 2024
-    edges = [0, 9, 35.5, 55.5, 125.5, 225.5, 255]
-else:
-    # AirNowTech 1hr PM25 color scale
     colors = [
-        '#009500', '#98cb00', '#fefe98', '#fefe00',
-        '#fecb00', '#f69800', '#fe0000', '#d50092'
-    ]  # 8 colors between 9 edges
-    edges = [-5, 10, 20, 30, 50, 70, 90, 120, 1000]
+        '#eeeeee', '#00e300', '#fefe00', '#fe7e00', '#fe0000', '#8e3f96',
+        '#7e0023', '#7e0023'
+    ]
+    # old pm25 aqi cutpoints EPA 454/B-18-007 September 2018
+    edges = [-inf, 0, 12, 35.5, 55.5, 150.5, 250.5, 255, inf]
+    # new pm25 aqi cutpoints EPA-454/B-24-002 May 2024
+    edges = [-inf, 0, 9, 35.5, 55.5, 125.5, 225.5, 255, inf]
+else:
+    # AirNowTech 1h Color Scale as of 2026-06-25
+    colors = [
+        '#c8ffc8', '#00e400', '#007d00', '#ffffc8', '#ffff00', '#c8c800',
+        '#ffbe78', '#ff7e00', '#c86400', '#ff6464', '#ff0000', '#c80000',
+        '#c896c8', '#8f3f97', '#643264', '#7e0023', '#500019', '#32000f',
+        '#000000'
+    ]
+    edges = [
+        -inf, 3.0, 6.0, 9.1, 15.0, 25.0, 35.5, 40.0, 50.0, 55.5, 75.0, 100.0,
+        125.5, 150.0, 200.0, 225.5, 325.0, 500.0, 750.0, inf
+    ]
 
 to_geojson(
     jpath, x=tgtds.x, y=tgtds.y, z=tgtds['mod_bbc'][0], crs=tgtds.crs_proj4,
-    edges=edges, colors=colors, under='#eeeeee', over=colors[-1],
-    description=tgtds.description
+    edges=edges, colors=colors, description=tgtds.description
 )

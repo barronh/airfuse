@@ -24,7 +24,7 @@ from sklearn.model_selection import KFold, cross_val_predict
 spc = 'ozone'
 nowcast = True
 # date = pd.to_datetime('2025-01-09T12')
-lag = pd.to_timedelta('2h')
+lag = pd.to_timedelta('1h')
 date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
 ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_Ozone.nc'
 jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_Ozone.geojson'
