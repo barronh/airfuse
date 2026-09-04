@@ -29,7 +29,7 @@ class obs:
         raise NotImplementedError('Must be implemented by subclass')
 
     def get(self, date):
-        """Get observational data for date
+        """Get observational data for date and, if appropriate, apply nowcast
 
         Arguments
         ---------
@@ -42,16 +42,34 @@ class obs:
             If nowcast, then obs will be nowcasted
             Otherwise, obs will be a raw 1-hour value.
         """
+        import logging
+        import numpy as np
+        import pandas as pd
+        logger = logging.getLogger(f'airfuse.{self.__class__}')
+
         spc = self.spc
 
         if self.nowcast:
             from ..utils import pmnowcast, o3nowcast
-            hdf = self.load(date)
-            df = hdf.drop(['obs'], axis=1).groupby(self.sitekey).first()
             if spc == 'pm25':
                 nowcast = pmnowcast
+                dhrs = np.arange(0, -12, -1)
             elif spc == 'ozone':
                 nowcast = o3nowcast
+                dhrs = np.arange(0, -14 * 24, -1)
+            dfs = []
+            for dh in dhrs:
+                hdate = date + pd.to_timedelta(dh, unit='h')
+                try:
+                    df = self.load(hdate)
+                    dfs.append(df)
+                except Exception as e:
+                    wmsg = f'{self.__class__} failed to retrieve {hdate}'
+                    wmsg += f': {str(e)}'
+                    logger.warn(wmsg)
+
+            hdf = pd.concat(dfs)
+            df = hdf.drop(['obs'], axis=1).groupby(self.sitekey).first()
             nc = hdf.groupby(self.sitekey).apply(
                 lambda df: nowcast(df.set_index('time').asfreq('1h')['obs']),
                 include_groups=False
