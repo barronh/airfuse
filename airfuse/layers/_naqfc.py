@@ -35,6 +35,7 @@ class naqfc(object):
         import pyproj
         self.name = 'naqfc'
         self.spc = spc
+        assert spc in ('ozone', 'o3', 'pm25')
         self.nowcast = nowcast
         self.kwds = kwds
         self.srs = (
@@ -211,7 +212,7 @@ class naqfc(object):
         if nowcast is None:
             nowcast = self.nowcast
 
-        if nowcast:
+        if nowcast and self.spc == 'pm25':
             import xarray as xr
             from ..utils import xpmnowcast
             date = pd.to_datetime(date)
@@ -226,7 +227,20 @@ class naqfc(object):
                 input_core_dims=[['time']], kwargs={"axis": -1}
             ).expand_dims(time=[date]).transpose('time', 'y', 'x')
             outvar.attrs.update(invar.attrs)
-        else:
+        elif nowcast and self.spc == 'ozone':
+            # centered 8-hour average (4 past; 4 forecasted)
+            # best model representation of Nowcast intent.
+            import xarray as xr
+            date = pd.to_datetime(date)
+            sdate = date + pd.to_timedelta('-3.5h')
+            edate = date + pd.to_timedelta('4h')
+            f = self.open(sdate, fdates=fdates)
+            invar = f[self.spc].sel(time=slice(sdate, edate))
+            invar[:] = invar.where(invar.fillna(0) < self.maxval, self.maxval)
+            # note: apply always moves core dimensions to the end
+            outvar = invar.mean('time', keepdims=True).transpose('time', 'y', 'x')
+            outvar.attrs.update(invar.attrs)
+        elif nowcast == False:
             f = self.open(date, fdates=fdates)
             outvar = f[self.spc].sel(time=[date], method='nearest')
             outvar[:] = outvar.where(
@@ -234,6 +248,9 @@ class naqfc(object):
             )
             if 'valid_time' in outvar.coords:
                 outvar = outvar.drop_vars('valid_time')
+        else:
+            logger.error(f'Nowcast is not compatible with {self.spc}')
+            assert nowcast == False
 
         outvar.name = self.name
         outvar.attrs['crs_proj4'] = f.attrs['crs_proj4']
