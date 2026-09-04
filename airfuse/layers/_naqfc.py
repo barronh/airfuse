@@ -238,9 +238,10 @@ class naqfc(object):
             invar = f[self.spc].sel(time=slice(sdate, edate))
             invar[:] = invar.where(invar.fillna(0) < self.maxval, self.maxval)
             # note: apply always moves core dimensions to the end
-            outvar = invar.mean('time', keepdims=True).transpose('time', 'y', 'x')
+            outvar = invar.mean('time', keepdims=True)
+            outvar = outvar.transpose('time', 'y', 'x')
             outvar.attrs.update(invar.attrs)
-        elif nowcast == False:
+        elif nowcast is False:
             f = self.open(date, fdates=fdates)
             outvar = f[self.spc].sel(time=[date], method='nearest')
             outvar[:] = outvar.where(
@@ -250,7 +251,7 @@ class naqfc(object):
                 outvar = outvar.drop_vars('valid_time')
         else:
             logger.error(f'Nowcast is not compatible with {self.spc}')
-            assert nowcast == False
+            assert nowcast is False
 
         outvar.name = self.name
         outvar.attrs['crs_proj4'] = f.attrs['crs_proj4']
