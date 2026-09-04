@@ -1,7 +1,4 @@
-def to_geopandas(
-    x, y, z, crs, edges=None, colors=None, names=None,
-    under='#808080', over='#000000'
-):
+def to_geopandas(x, y, z, crs, edges, colors, labels=None, empty=True):
     """
     Converts z into a set of polygons that are returned as a geopandas
     GeoDataFrame
@@ -20,137 +17,111 @@ def to_geopandas(
         2-d (ny,nx) values at the y/x coordinates
     crs : str
         Projection string (PROJ4 or anything geopandas compatible)
-    edges : list
-        List of numerical boundaries for norm and cmap
-    colors : list
-        List of colors to be used for cmap
-    names : list
-        Names of intervals (one fewer than edges)
-    under : str
-        If None, do not automatically add an under category.
-        If not None, add a category (z.min(), edges[0]) with color=under
-    over : str
-        If None, do not automatically add an over category.
-        If not None, add a category (z.max(), edges[-1]) with color=over
+    edges : array-like
+        Color bin edges (n+1); use -inf and inf to enable over/under categories
+    colors : array-like
+        Colors (n) names or hex codes for the color of each bin.
+    labels : array-like
+        Labels (n) of intervals
+    empty : bool
+        If True (default), keep empty polygons
 
     Returns
     -------
-    gdf, cmap, norm : geopandas.GeoDataFrame, matplotlib.cmap, matplotlib.norm
+    gdf : geopandas.GeoDataFrame
         Contains 1 row for each interval between edges, including rows with
         empty Polygons
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    from shapely.geometry import Polygon, MultiPolygon, box
     import geopandas as gpd
+    import pandas as pd
+    from shapely import GeometryType, from_ragged_array, unary_union, wkt
+    from shapely.geometry import box
+    from contourpy import contour_generator
     import logging
+    import matplotlib.colors as mc
     logger = logging.getLogger('airfuse.utils.to_geopandas')
+    minv = float(z.min())
+    maxv = float(z.max())
+    inf = float('inf')
+    nc = len(colors)
+    assert (nc + 1) == len(edges)
+    if labels is not None:
+        assert nc == len(labels)
+    else:
+        labels = []
+        for i in range(nc):
+            lo = edges[i]
+            hi = edges[i + 1]
+            if lo == float('-inf'):
+                labels.append(f'<{hi}')
+            elif hi == float('inf'):
+                labels.append(f'>={lo}')
+            else:
+                labels.append(f'{lo} <= z < {hi}')
 
-    if edges is None:
-        # Based on PM from DMC
-        edges = [-5., 10, 20, 30, 50, 70, 90, 120, 500.4]
-    zmin = z.min() - 1e-20
-    zmax = z.max() + 1e-20
-    if colors is None:
-        colors = [
-                '#009600', '#99cc00', '#ffff99', '#ffff00', '#ffcc00',
-                '#f79900', '#ff0000', '#d60093',
-        ][:len(edges) - 1]
-
-    colors = [c for c in colors]
-    if zmin < edges[0] and under is not None:
-        colors.insert(0, under)
-        edges = np.append(zmin, edges)
-
-    if zmax > edges[-1] and over is not None:
-        colors.append(over)
-        edges = np.append(edges, zmax)
-
-    if names is None:
-        names = [
-            f'{start} to {end:.4g}'
-            for start, end in zip(edges[:-1], edges[1:])
-        ]
-
-    centers = np.interp(
-        np.arange(len(edges) - 1) + 0.5, np.arange(len(edges)), np.array(edges)
-    )
-    cmap, norm = plt.matplotlib.colors.from_levels_and_colors(
-        np.array(edges) + 0.0, colors, extend='neither'
-    )
-    fig, ax = plt.subplots(1, 1, dpi=300)
-
-    # Clip the top and bottom of the scale
-    Z = np.ma.maximum(np.ma.minimum(np.ma.masked_invalid(z), 500), 0)
-
-    qcs = ax.contourf(
-        x, y, Z, levels=edges, cmap=cmap, norm=norm
-    )
+    # Each contour color is represented by a multipolygon
     mpolys = []
-    i = 0
-    # qcs.collections has been deprecated. On inspection,
-    # qcs.collections[i].get_paths() is identical to [qcs.get_paths()[i]]
-    # as a result, I have changed the setup to use get_paths
-    # https://github.com/matplotlib/matplotlib/blob/v3.8.1/lib/matplotlib
-    #  /contour.py#L987
-    try:
-        paths = qcs.get_paths()
-        pathgroups = [[p] for p in paths]
-    except Exception:
-        pathgroups = [c.get_paths() for c in qcs.collections]
-
-    assert len(pathgroups) == len(centers)
-    for pi, pathg in enumerate(pathgroups):
-        polys = []
-        for ppi, path in enumerate(pathg):
-            if path.codes is None:
-                continue
-            nbadpoly = []
-            rings = []
-            xys = None
-            for xy, c in zip(path.vertices, path.codes):
-                if c == 1:
-                    if xys is not None:
-                        rings.append(xys)
-                        i += 1
-                    xys = [xy]
+    for i in range(nc):
+        mylbl = labels[i]
+        if edges[i] == -inf:
+            lower = minv
+        else:
+            lower = edges[i]
+        if edges[i + 1] == inf:
+            upper = maxv
+        else:
+            upper = edges[i + 1]
+        mycolor = mc.to_hex(colors[i])
+        try:
+            cont_gen = contour_generator(
+                z=z, x=x, y=y, fill_type="ChunkCombinedOffsetOffset"
+            )
+            # Chunk combined offset offset has only on set of values for
+            # three categories points, offsets, outer_offsets
+            pts, offs, outoffs = cont_gen.filled(
+                edges[i], edges[i + 1]
+            )
+            # When there is no polygon, the points element is None
+            if pts[0] is None:
+                logger.info(f'No polygon for {mylbl}')
+                if empty:
+                    mply = wkt.loads('POLYGON EMPTY')
                 else:
-                    xys.append(xy)
-
-            rings.append(xys)
-
-            nr = len(rings)
-            if nr > 0:
-                try:
-                    rings = [r for r in rings if len(r) > 3]
-                    poly = Polygon(rings[0], rings[1:])
-                    polys.append(poly)
-                except Exception as e:
-                    nbadpoly.append(e)
-            if len(nbadpoly) > 0:
-                logger.warning(
-                    f'*Lost {len(nbadpoly)} poly for {names[pi]}: {nbadpoly}'
-                )
-        mpolys.append(dict(
-            Name=names[pi], AQIC=centers[pi], geometry=MultiPolygon(polys),
-            OGR_STYLE=f'BRUSH(fc:{colors[pi]})',
-        ))
+                    continue
+            else:
+                # pts, offs, outoffs are for shapely's from_ragged_array func
+                ropts = GeometryType.POLYGON, pts[0], (offs[0], outoffs[0])
+                polygons = from_ragged_array(*ropts)
+                # The resulting polygons are combined into a multipolygon
+                mply = unary_union(polygons)
+            # And stored with metadata for the geopandas.GeoDataFrame
+            mpolys.append(dict(
+                label=mylbl, geometry=mply, OGR_STYLE=f'BRUSH(fc:{mycolor})',
+                lower=lower, upper=upper, color=mycolor,
+            ))
+        except Exception as e:
+            logger.warning(f'*Lost polygon for {mylbl}: {str(e)}')
 
     if len(mpolys) == 0:
+        nan = float('nan')
+        mycolor = '#808080'
         gdf = gpd.GeoDataFrame([
-                dict(Name='BLANK', AQIC=-999, OGR_STYLE='BRUSH(fc:#808080')
-            ], geometry=[box(-130, 20, -129.999, 20.001)], crs=4326
-        ).to_crs(crs)
+            dict(
+                label='BLANK', OGR_STYLE=f'BRUSH(fc:{mycolor})',
+                lower=nan, upper=nan, color=mycolor
+            )
+        ], geometry=[box(x.min(), y.min(), x.max(), y.max())], crs=crs)
     else:
         df = pd.DataFrame(mpolys)
+        logger.info('Geometry Summary:')
+        lstr = repr(df.drop('geometry', axis='columns'))
+        for log in lstr.split('\n'):
+            logger.info(log)
         gdf = gpd.GeoDataFrame(
             df.drop('geometry', axis='columns'), geometry=df['geometry'],
             crs=crs
         )
-
-    plt.close(fig)
-    return gdf, cmap, norm
+    return gdf
 
 
 def to_geojson(
@@ -182,7 +153,7 @@ def to_geojson(
     from shapely import wkt
     import logging
 
-    gdf, cmap, norm = to_geopandas(*args, **kwds)
+    gdf = to_geopandas(*args, **kwds)
     verbose = kwds.get('verbose', 0)
     if outcrs is not None:
         gdf = gdf.to_crs(outcrs)
