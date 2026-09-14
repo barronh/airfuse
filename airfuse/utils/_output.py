@@ -9,14 +9,35 @@ _varattrs = {
     "naqfc": {
         "var_desc": "NOAA Air Quality Forecast Model with Bias Correction",
     },
-    "obsx": {"units": "m"},
-    "obsy": {"units": "m"},
-    "x": {"units": "m"},
-    "y": {"units": "m"},
+    "obsx": {"units": "m", "var_desc": "observation projected x-coordinate"},
+    "obsy": {"units": "m", "var_desc": "observation projected y-coordinate"},
+    "x": {"units": "m", "var_desc": "model projected x-coordinate"},
+    "y": {"units": "m", "var_desc": "model projected y-coordinate"},
     "obs": {"var_desc": "Observation value."},
-    "mod": {"var_desc": "Model from original gridded product."},
+    "mod": {"var_desc": "Model from original gridded NOAA product."},
+    "obs_dnr": {
+        "var_desc": "sum(w_i * o_i) / sum(w_i) for i in Delaunay Neighbors"
+    },
+    "obs_dnr_w": {
+        "var_desc": "proportional to mean square error of cross-validation dnr"
+    },
     "mod_mbc": {"var_desc": "mod * obshat / modhat"},
+    "mod_mbc_w": {
+        "var_desc": "proportional to mean square error of cross-validation dnr"
+    },
     "mod_abc": {"var_desc": "mod + obshat - modhat"},
+    "mod_abc_w": {
+        "var_desc": "proportional to mean square error of cross-validation dnr"
+    },
+    "mod_ambc": {"var_desc": "where(mod_abc<0,mod_mbc,mean(mod_abc,mod_mbc))"},
+    "mod_ambc_w": {
+        "var_desc": "proportional to mean square error of cross-validation drn"
+    },
+    "mod_bbc": {
+        "var_desc": (
+            "sum(y_i * w_i) for i in obs_dnr, mod_abc, mod_mbc, mod_mod_abc"
+        )
+    },
     "mod_bc": {
         "var_desc": (
             "abc = mod + obshat - modhat;"
@@ -45,24 +66,29 @@ of nearest neighbors using extra weighting of Delaunay Neighbors.
 """
 
 
-def addattrs(tgtds, units='micrograms/m**3', defattrs=None):
+def addattrs(tgtds, units='micrograms/m**3', defattrs=None, dtypes=None):
     import copy
     from .. import __version__
     import pandas as pd
+    import getpass
+    try:
+        user = getpass.getuser()
+    except Exception:
+        wmsg = 'User unknown: set LOGNAME, USER, LNAME and USERNAME'
+        wmsg += ' environmental variable'
+        logger.info(wmsg)
+        user = 'unknown'
     nowstr = pd.to_datetime('now', utc=True).strftime('%Y-%m-%dT%H:%M:%S%z')
     tgtds.attrs.update({
-        'title': f'AirFuse ({__version__})',
-        'author': 'Barron H. Henderson',
-        'institution': 'US Environmental Protection Agency',
+        'title': f'AirFuse ({__version__})', 'author': user,
         'description': _fdesc, 'updated': nowstr
     })
     if defattrs is None:
         defattrs = copy.deepcopy(_varattrs)
     for k, v in tgtds.data_vars.items():
         # define default attributes
-        dattrs = defattrs.get(
-            k, {'long_name': k, 'units': units, 'var_desc': k}
-        )
+        dattrs = {'long_name': k, 'units': units, 'var_desc': k}
+        dattrs.update(defattrs.get(k, {}))
         # overwrite with any existing data
         dattrs.update(v.attrs)
         # reset attributes with defaults and original
