@@ -23,7 +23,7 @@ import logging
 # - n_jobs : Number of threads to simultaneiously do calculations
 spc = 'pm25'
 nowcast = True
-lag = pd.to_timedelta('1h')
+lag = pd.to_timedelta('1.25h')
 date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
 # date = pd.to_datetime('2025-07-15T18')  # Random
 # date = pd.to_datetime('2025-01-09T12')  # LA Fires
@@ -41,10 +41,14 @@ n_jobs = 32
 os.makedirs(os.path.dirname(logpath), exist_ok=True)
 # tee out
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename=logpath, level=logging.INFO)
+logging.basicConfig(
+    filename=logpath, level=logging.INFO,
+    format='%(asctime)s - [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 console_handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(console_handler)
-logger.info('Starting AirFuse')
+logger.info(f'Starting AirFuse {pd.to_datetime("now")}')
 logger.info(f'spc={spc}')
 logger.info(f'date={date}')
 logger.info(f'nowcast={nowcast}')
@@ -81,9 +85,15 @@ try:
     paobj = purpleairrsig(spc, nowcast=nowcast, dust=dust)
     padf = paobj.pair(date, modvar, mod.proj)
     padf[['groups', 'sample_weight']] = [1, 0.25]
+    # downweight samples with obs greater than 1000?
     padf['sample_weight'] = padf['sample_weight'].where(padf['obs'] < 1000, .0025)
+    # Or just remove them?
     padf.query('obs < 1000', inplace=True)
-    logger.info(f'- PurpleAir : groups=1 sample_weight=0.25 n={padf.shape[0]}')
+    npa = padf.shape[0]
+    if npa < 300:
+        msg = f'n={npa} insufficient observations for cross-validation'
+        raise ValueError(msg)
+    logger.info(f'- PurpleAir : groups=1 sample_weight=0.25 n={npa}')
     logger.info('Concatenate AirNow and PurpleAir')
     obdf = pd.concat([andf, padf], ignore_index=True)
 except Exception as e:
@@ -149,7 +159,7 @@ obdf['mod_bbc'] = regr.predict(obdf[xkeys])
 tgtdf = modvar.to_dataframe(name='mod')
 tgtX = tgtdf.index.to_frame()[['x', 'y']]
 tgtX['mod'] = tgtdf['mod']
-regr.set_how('debug')
+regr.set_how('debug')  # save space by using all or best
 tgtdf[regr.feature_names_out_] = regr.predict(tgtX)
 
 # %
@@ -159,7 +169,10 @@ tgtdf[regr.feature_names_out_] = regr.predict(tgtX)
 # Save the results as a NetCDF file
 logger.info('Saving result as NetCDF')
 
-tgtds = tgtdf.to_xarray()
+# Convert outputs from 64-bit to 32-bit floats to save space.
+outtypes = {k: np.float32 for k in regr.feature_names_out_}
+outtypes['mod'] = np.float32
+tgtds = tgtdf.astype(outtypes).to_xarray()
 tgtds['obsx'] = obdf['x'].to_xarray()
 tgtds['obsy'] = obdf['y'].to_xarray()
 tgtds['obs'] = obdf['obs'].to_xarray()
@@ -169,7 +182,9 @@ tgtds['mod_bbc_cv'] = obdf['mod_bbc_cv'].to_xarray()
 tgtds['mod'].attrs.update(modvar.attrs)
 addattrs(tgtds, units=modvar.units)
 tgtds.attrs['crs_proj4'] = modvar.crs_proj4
-tgtds.to_netcdf(ncpath)
+tgtds.rename(index='obsn').to_netcdf(ncpath)
+
+logger.info(f'Completed AirFuse {pd.to_datetime("now")}')
 
 # Save the results as a GeoJSON file
 logger.info('Saving result as GeoJson')

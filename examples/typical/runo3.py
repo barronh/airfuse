@@ -24,7 +24,7 @@ from sklearn.model_selection import KFold, cross_val_predict
 spc = 'ozone'
 nowcast = True
 # date = pd.to_datetime('2025-01-09T12')
-lag = pd.to_timedelta('1h')
+lag = pd.to_timedelta('1.25h')
 date = (pd.to_datetime('now', utc=True) - lag).floor('1h').tz_convert(None)
 ncpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_Ozone.nc'
 jpath = f'outputs/{date:%Y%m%d/AirFuse.%Y-%m-%dT%H}Z_Ozone.geojson'
@@ -33,7 +33,11 @@ n_jobs = 32
 
 os.makedirs(os.path.dirname(logpath), exist_ok=True)
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename=logpath, level=logging.INFO)
+logging.basicConfig(
+    filename=logpath, level=logging.INFO,
+    format='%(asctime)s - [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logging.info('Starting AirFuse')
 logging.info(f'spc={spc}')
 logging.info(f'date={date}')
