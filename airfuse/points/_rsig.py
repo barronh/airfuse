@@ -172,7 +172,8 @@ class purpleairrsig(rsig_obs):
         import numpy as np
         from ..utils import buddycheck
         import logging
-        logger = logging.getLogger(f'airfuse.{self.__class__}.load')
+        classname = type(self).__name__
+        logger = logging.getLogger(f'airfuse.{classname}.load')
         df = super().load(date, 'purpleair.pm25_corrected')
         date = pd.to_datetime(date)
         df['time'] = df['time'].dt.floor('1h')
@@ -231,7 +232,7 @@ class purpleairrsig(rsig_obs):
             nkeep = keep.sum()
             norig = keep.shape[0]
             nrem = norig - nkeep
-            msg = f'{nrem} ({nrem / norig:.1%}) sensors removed'
+            msg = f'{nrem} ({nrem / norig:.1%}) sensors removed by buddy check'
             logger.info(msg)
             df = df.loc[keep]  # only keep the non-outliers
         maxv = self.max_valid
