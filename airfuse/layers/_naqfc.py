@@ -237,8 +237,8 @@ class naqfc(object):
             f = self.open(sdate, fdates=fdates)
             invar = f[self.spc].sel(time=slice(sdate, edate))
             invar[:] = invar.where(invar.fillna(0) < self.maxval, self.maxval)
-            # note: apply always moves core dimensions to the end
-            outvar = invar.mean('time', keepdims=True)
+            # note: use date as time dimension and reorder dims
+            outvar = invar.mean('time').expand_dims(time=[date])
             outvar = outvar.transpose('time', 'y', 'x')
             outvar.attrs.update(invar.attrs)
         elif nowcast is False:

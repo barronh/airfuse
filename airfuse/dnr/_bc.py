@@ -234,7 +234,7 @@ class BCDelaunayNeighborsRegressor(_BCRegressor, DelaunayNeighborsRegressor):
             mbc: returns multiplicative bias correction
             ambc: returns where abc is negative, mbc, else mean(abc, mbc)
             individual: returns obs, abc, mbc, ambc - primarily for tuning best
-            best: returns weighted obs, abc, mbc, and ambc by CV MSE**-2
+            best: returns weighted obs, abc, mbc, and ambc - w=(CV MSE)**-1
             all: returns idividual + best
 
         """
