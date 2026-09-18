@@ -1,3 +1,7 @@
+from ..utils._err import log_class_errors
+
+
+@log_class_errors
 class obs:
     def __init__(
         self, spc, bbox=None, nowcast=False,

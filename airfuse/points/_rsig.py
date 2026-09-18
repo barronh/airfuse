@@ -1,6 +1,8 @@
 from ._obs import obs
+from ..utils._err import log_class_errors
 
 
+@log_class_errors
 class rsig_obs(obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, src='airnow',
@@ -79,6 +81,7 @@ class rsig_obs(obs):
         return df
 
 
+@log_class_errors
 class airnowrsig(rsig_obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, inroot='inputs'
@@ -105,6 +108,7 @@ class airnowrsig(rsig_obs):
         )
 
 
+@log_class_errors
 class purpleairrsig(rsig_obs):
     def __init__(
         self, spc, bbox=None, nowcast=False, inroot='inputs',

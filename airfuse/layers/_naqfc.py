@@ -1,7 +1,11 @@
 import logging
+from ..utils._err import log_class_errors
+
+
 logger = logging.getLogger('airfuse.layers.naqfc')
 
 
+@log_class_errors
 class naqfc(object):
     def __init__(
         self, spc, nowcast=False, maxval=2e3, inroot='inputs', **kwds

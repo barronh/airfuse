@@ -71,9 +71,11 @@ def addattrs(tgtds, units='micrograms/m**3', defattrs=None, dtypes=None):
     from .. import __version__
     import pandas as pd
     import getpass
+    import logging
     try:
         user = getpass.getuser()
     except Exception:
+        logger = logging.getLogger('airfuse.utils.addattrs')
         wmsg = 'User unknown: set LOGNAME, USER, LNAME and USERNAME'
         wmsg += ' environmental variable'
         logger.info(wmsg)
