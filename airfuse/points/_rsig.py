@@ -111,7 +111,7 @@ class airnowrsig(rsig_obs):
 @log_class_errors
 class purpleairrsig(rsig_obs):
     def __init__(
-        self, spc, bbox=None, nowcast=False, inroot='inputs', invalid=None,
+        self, spc, bbox=None, nowcast=False, inroot='inputs', exclude=None,
         dust='ignore', drop_outliers=True, min_valid=0.0, max_valid=1000.0,
         api_key=None
     ):
@@ -127,7 +127,7 @@ class purpleairrsig(rsig_obs):
             If True, species will be nowcasted. If False, return hourly result
         inroot : str
             Path to store cached inputs.
-        invalid : list
+        exclude : list
             List-like set of PurpleAir IDs that are known to have bad values
         dust : str
             Choice on how to treat dusty measurements: ignore, exclude, correct
@@ -168,7 +168,7 @@ class purpleairrsig(rsig_obs):
         self._rsigopts['purpleair_kw'] = dict(api_key=api_key)
         assert dust in ('exclude', 'correct', 'ignore')
         self.dust = dust
-        self.invalid = invalid
+        self.exclude = exclude
         self.min_valid = min_valid
         self.max_valid = max_valid
         self.drop_outliers = drop_outliers
@@ -195,19 +195,19 @@ class purpleairrsig(rsig_obs):
         classname = type(self).__name__
         logger = logging.getLogger(f'airfuse.{classname}.load')
         df = super().load(date, key)
-        if self.invalid is not None:
-            invalid = self.invalid
+        if self.exclude is not None:
+            exclude = self.exclude
             nbefore = df.shape[0]
-            remids = df.query(f'station.isin({invalid}) == True').index
+            remids = df.query(f'station.isin({exclude}) == True').index
             remids = list(remids.values)
-            df.query(f'station.isin({invalid}) == False', inplace=True)
+            df.query(f'station.isin({exclude}) == False', inplace=True)
             nafter = df.shape[0]
             if nbefore != nafter:
                 ndrop = nbefore - nafter
-                ninvalid = len(invalid)
-                wmsg = f'{ndrop} records  removed from {ninvalid}'
+                nexclude = len(exclude)
+                wmsg = f'{ndrop} records  removed from {nexclude}'
                 logger.warning(wmsg)
-                wmsg = f'Removed ({remids}) of invalid ids ({invalid})'
+                wmsg = f'Removed ({remids}) of exclude ids ({exclude})'
                 logger.debug(wmsg)
 
         date = pd.to_datetime(date)
