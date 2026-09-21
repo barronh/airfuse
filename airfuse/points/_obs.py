@@ -3,10 +3,35 @@ from ..utils._err import log_class_errors
 
 @log_class_errors
 class obs:
+    __doc__ = """
+    obj object has three primary methods:
+    load : load data from a server or file as a dataframe
+    get : get data in appropriate form (hourly or nowcast) by using load to
+          create a dataframe, then applying subclass-specific constraints and
+          post processing, followed by optional nowcast.
+    pair : pairs data returned by get with model data
+    """
+
     def __init__(
         self, spc, bbox=None, nowcast=False,
         sitekey=None, inroot='inputs'
     ):
+        """
+        Arguments
+        ---------
+        spc : str
+            Species to retrieve (ozone or pm25)
+        bbox : tuple
+            Longitude/latitude bounding box (wlon, slat, elon, nlat) for
+            data to be retrieved.
+        nowcast : bool
+            Load multiple hours of data and apply nowcast in get method.
+        sitekey : str
+            The column that defines a spatial unit within the data. Used by
+            nowcast as the item to group multiple time-obs by.
+        inroot : str
+            Path to cache inputs as they are retrieved.
+        """
         if bbox is None:
             bbox = (-135, 15, -55, 80)
         self.spc = spc
@@ -89,9 +114,14 @@ class obs:
         Arguments
         ---------
         date : datetime
+            Target date for data
         modvar : xarray.DataArray
+            Uncorrected model result for date
         proj : pyproj.Proj
+            Projection object that defines the gridded space in of modvar
         qstr : str
+            Query string (optional) defaults to requiring both model and obs
+            to be valid.
 
         Returns
         -------

@@ -89,6 +89,20 @@ class _fasm(obs):
 
 class purpleairfasm(_fasm):
     def load(self, date, key=None):
+        """load raw data from server.
+
+        Arguments
+        ---------
+        date : date-like
+            Starting hour to load HH:00:00Z to HH:59:59Z
+        key : str
+            Override the default key (default: src.spc)
+
+        Returns
+        -------
+        df : pandas.DataFrame
+            Must have time, longitude, latitude, and obs, and sitekey
+        """
         import io
         import requests
         import pandas as pd
@@ -121,6 +135,20 @@ class purpleairfasm(_fasm):
 
 class airnowfasm(_fasm):
     def load(self, date, key=None):
+        """load raw data from server.
+
+        Arguments
+        ---------
+        date : date-like
+            Starting hour to load HH:00:00Z to HH:59:59Z
+        key : str
+            Override the default key (default: src.spc)
+
+        Returns
+        -------
+        df : pandas.DataFrame
+            Must have time, longitude, latitude, and obs, and sitekey
+        """
         import requests
         import pandas as pd
         aurl = self.urls['airnowjson']
