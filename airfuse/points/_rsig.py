@@ -195,17 +195,18 @@ class purpleairrsig(rsig_obs):
         classname = type(self).__name__
         logger = logging.getLogger(f'airfuse.{classname}.load')
         df = super().load(date, key)
+        sitekey = self.sitekey
         if self.exclude is not None:
             exclude = self.exclude
             nbefore = df.shape[0]
-            remids = df.query(f'station.isin({exclude}) == True').index
+            remids = df.query(f'{sitekey}.isin({exclude}) == True')[sitekey]
             remids = list(remids.values)
-            df.query(f'station.isin({exclude}) == False', inplace=True)
+            df.query(f'{sitekey}.isin({exclude}) == False', inplace=True)
             nafter = df.shape[0]
             if nbefore != nafter:
                 ndrop = nbefore - nafter
                 nexclude = len(exclude)
-                wmsg = f'{ndrop} records  removed from {nexclude}'
+                wmsg = f'{ndrop} records removed from {nexclude} to exclude'
                 logger.warning(wmsg)
                 wmsg = f'Removed ({remids}) of exclude ids ({exclude})'
                 logger.debug(wmsg)
@@ -269,7 +270,7 @@ class purpleairrsig(rsig_obs):
             nkeep = keep.sum()
             norig = keep.shape[0]
             nrem = norig - nkeep
-            remids = list(df.loc[~keep].index.values)
+            remids = list(df.loc[~keep, sitekey].values)
             msg = f'{nrem} ({nrem / norig:.1%}) sensors removed by buddy'
             logger.info(msg)
             msg = f'Removed ids: {remids}'
