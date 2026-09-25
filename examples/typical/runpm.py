@@ -82,7 +82,28 @@ logger.info(f'- AirNow : groups=0 sample_weight=1 n={andf.shape[0]}')
 
 logger.info('Loading PurpleAir')
 try:
-    paobj = purpleairrsig(spc, nowcast=nowcast, dust=dust)
+    # Dynamic list can read from a file
+    # import json
+    # with open('exclusion.json') as ef:
+    #     badids = [int(row['unit_id']) for row in json.load(ef)]
+    #
+    # Or define a static list
+    badids = [
+        25795, 36281, 38473, 38649, 79925, 85763, 85915, 110434, 111342,
+        111704, 112298, 112484, 113346, 113648, 114217, 114319, 114577,
+        117239, 118045, 118579, 118791, 118805, 119545, 119967, 120419,
+        120787, 123649, 124621, 127477, 128833, 130447, 131903, 131967,
+        132695, 133686, 134212, 137404, 139452, 139978, 142672, 146858,
+        148643, 151122, 151748, 152934, 154393, 155609, 155621, 155649,
+        160983, 162317, 163203, 164683, 164903, 165113, 165519, 165539,
+        165549, 165571, 166809, 166827, 171249, 171711, 175717, 177421,
+        180557, 184431, 185427, 186123, 188435, 189167, 190521, 192799,
+        192987, 194765, 195355, 195362, 195747, 202913, 203103, 203197,
+        227437, 230663, 231387, 231389, 231391, 231393, 231397, 237087,
+        237093, 237145, 242071, 242105, 246447, 264472, 270054, 270248,
+        270292, 294067, 384473
+    ]
+    paobj = purpleairrsig(spc, nowcast=nowcast, dust=dust, exclude=badids)
     padf = paobj.pair(date, modvar, mod.proj)
     padf[['groups', 'sample_weight']] = [1, 0.25]
     # downweight samples with obs greater than 1000?
